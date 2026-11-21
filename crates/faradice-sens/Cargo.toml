@@ -1,0 +1,26 @@
+[package]
+name = "faradice-sens"
+description = "Capacitance sensitivities for faradice: parameter files, step selection and sens.json"
+readme = "README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+faradice-core.workspace = true
+faradice-geom.workspace = true
+faradice-frw = { workspace = true, features = ["sensitivity"] }
+faradice-io.workspace = true
+faradice-engine.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

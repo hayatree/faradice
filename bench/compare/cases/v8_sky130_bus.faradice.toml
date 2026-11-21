@@ -1,0 +1,45 @@
+# V8: small sky130-like bus on met1-met3, uniform dielectric (eps_r = 4.0).
+# Layer heights follow tech/sky130_uniform.tech.toml (public SKY130 PDK docs).
+# Four met2 bus bits (0.14 µm width/space, 8 µm long) cross three met1 lines
+# below and two met3 lines (0.3 µm wide) above.
+schema_version = 1
+units = "um"
+
+[dielectric]
+eps_r = 4.0
+
+[[conductor]]
+net = "bus[0]"
+boxes = [[0.0000, 0.0000, 2.0061, 8.0000, 0.1400, 2.3661]]
+
+[[conductor]]
+net = "bus[1]"
+boxes = [[0.0000, 0.2800, 2.0061, 8.0000, 0.4200, 2.3661]]
+
+[[conductor]]
+net = "bus[2]"
+boxes = [[0.0000, 0.5600, 2.0061, 8.0000, 0.7000, 2.3661]]
+
+[[conductor]]
+net = "bus[3]"
+boxes = [[0.0000, 0.8400, 2.0061, 8.0000, 0.9800, 2.3661]]
+
+[[conductor]]
+net = "m1_0"
+boxes = [[1.5000, -1.0000, 1.3761, 1.6400, 1.9600, 1.7361]]
+
+[[conductor]]
+net = "m1_1"
+boxes = [[3.9300, -1.0000, 1.3761, 4.0700, 1.9600, 1.7361]]
+
+[[conductor]]
+net = "m1_2"
+boxes = [[6.3600, -1.0000, 1.3761, 6.5000, 1.9600, 1.7361]]
+
+[[conductor]]
+net = "m3_0"
+boxes = [[2.5000, -1.0000, 2.7861, 2.8000, 1.9600, 3.6311]]
+
+[[conductor]]
+net = "m3_1"
+boxes = [[5.2000, -1.0000, 2.7861, 5.5000, 1.9600, 3.6311]]

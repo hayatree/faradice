@@ -1,0 +1,38 @@
+[package]
+name = "faradice"
+description = "Fast, accurate 3D parasitic capacitance extraction with floating random walks"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "../../README.md"
+
+[[bin]]
+name = "faradice"
+path = "src/main.rs"
+
+[dependencies]
+faradice-core.workspace = true
+faradice-geom.workspace = true
+faradice-io.workspace = true
+faradice-gds.workspace = true
+faradice-engine.workspace = true
+faradice-sens = { workspace = true, optional = true }
+clap.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[features]
+default = ["sens"]
+# `faradice sens`: capacitance sensitivities (design D3).
+sens = ["dep:faradice-sens"]
+# GPU walk engine (wgpu/Vulkan); requires Rust 1.87.
+gpu = ["faradice-engine/gpu"]
+
+[lints]
+workspace = true

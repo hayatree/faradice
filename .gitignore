@@ -1,0 +1,10 @@
+/target
+**/*.rs.bk
+*.profraw
+/out/
+# Default output directories and files of the CLI, the benchmarks and the README examples
+faradice_out/
+compare_out/
+scaling_out/
+/map.csv
+__pycache__/

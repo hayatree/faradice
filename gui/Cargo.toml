@@ -1,0 +1,36 @@
+# The GUI lives in its own workspace so that the main workspace (libraries and
+# CLI) builds without the GUI toolchain, and so that the winit license patch
+# (`vendor/fetch.sh`) only applies here. Run `vendor/fetch.sh` once before
+# building.
+
+[workspace]
+resolver = "3"
+members = ["faradice-gui"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+license = "MIT OR Apache-2.0"
+authors = ["The faradice contributors"]
+repository = "https://github.com/hayatree/faradice"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[patch.crates-io]
+# Without the LGPL KDE protocol files (see vendor/fetch.sh).
+winit = { path = "vendor/winit" }
+wayland-protocols-misc = { path = "vendor/wayland-protocols-misc" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+[profile.dev.package."*"]
+opt-level = 2

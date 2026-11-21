@@ -1,0 +1,22 @@
+# Example run configuration. Every key is optional; see docs/reference.md.
+schema_version = 1
+
+[ground]
+ignore = "none"          # none | report | physics
+substrate = "plane"
+substrate_z = 0.0
+report = "by_source"     # merged | by_source | drop
+
+[accuracy]
+preset = "signoff"       # fast | default | signoff | reference
+coupling_track = { rel = 0.02 }
+
+[coupling]
+rel_threshold = 0.01     # couplings below 1 % of a total are moved to ground
+significance_sigma = 2.0
+
+[run]
+seed = 1
+
+[domain]
+kind = "open"           # open space above the substrate plane (default: a grounded box)

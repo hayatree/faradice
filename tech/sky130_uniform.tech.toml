@@ -1,0 +1,92 @@
+# SkyWater SKY130 interconnect stack for faradice with one uniform dielectric.
+#
+# Layer numbers and nominal heights/thicknesses follow the public SKY130 PDK
+# documentation (Apache-2.0,
+# https://skywater-pdk.readthedocs.io/en/main/rules/assumptions.html). They are
+# provided for convenience and must be verified against the PDK version you use.
+# One effective dielectric constant is used, so absolute capacitances are
+# approximate; use this file for connectivity tracing and quick relative
+# comparisons. tech/sky130_stack.tech.toml has the stratified stack and the
+# conformal sidewall dielectrics.
+schema_version = 1
+name = "sky130 (approximate, uniform dielectric)"
+eps_r = 4.0
+substrate_z = 0.0
+
+[[layer]]
+name = "li1"
+gds = [67, 20]
+also = [[67, 16]]
+zmin = 0.9361
+thickness = 0.1
+labels = [[67, 5], [67, 16]]
+
+[[layer]]
+name = "met1"
+gds = [68, 20]
+also = [[68, 16]]
+zmin = 1.3761
+thickness = 0.36
+labels = [[68, 5], [68, 16]]
+
+[[layer]]
+name = "met2"
+gds = [69, 20]
+also = [[69, 16]]
+zmin = 2.0061
+thickness = 0.36
+labels = [[69, 5], [69, 16]]
+
+[[layer]]
+name = "met3"
+gds = [70, 20]
+also = [[70, 16]]
+zmin = 2.7861
+thickness = 0.845
+labels = [[70, 5], [70, 16]]
+
+[[layer]]
+name = "met4"
+gds = [71, 20]
+also = [[71, 16]]
+zmin = 4.0211
+thickness = 0.845
+labels = [[71, 5], [71, 16]]
+
+[[layer]]
+name = "met5"
+gds = [72, 20]
+also = [[72, 16]]
+zmin = 5.3711
+thickness = 1.26
+labels = [[72, 5], [72, 16]]
+
+[[via]]
+name = "mcon"
+gds = [67, 44]
+bottom = "li1"
+top = "met1"
+
+[[via]]
+name = "via"
+gds = [68, 44]
+bottom = "met1"
+top = "met2"
+
+[[via]]
+name = "via2"
+gds = [69, 44]
+bottom = "met2"
+top = "met3"
+
+[[via]]
+name = "via3"
+gds = [70, 44]
+bottom = "met3"
+top = "met4"
+
+[[via]]
+name = "via4"
+gds = [71, 44]
+bottom = "met4"
+top = "met5"

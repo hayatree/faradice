@@ -1,0 +1,27 @@
+[package]
+name = "faradice-geom"
+description = "Axis-aligned conductor geometry and L-infinity nearest-conductor queries for faradice"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "README.md"
+
+[dependencies]
+faradice-core.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "nearest"
+harness = false
+
+[lints]
+workspace = true

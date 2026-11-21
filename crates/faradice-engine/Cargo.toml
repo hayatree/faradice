@@ -1,0 +1,31 @@
+[package]
+name = "faradice-engine"
+description = "Shared run engine of faradice: project loading, runs, background jobs and events"
+readme = "README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+faradice-core.workspace = true
+faradice-geom.workspace = true
+faradice-frw.workspace = true
+faradice-io.workspace = true
+faradice-gds.workspace = true
+faradice-gpu = { workspace = true, optional = true }
+rayon.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+
+[features]
+# GPU walk engine (wgpu/Vulkan); requires Rust 1.87.
+gpu = ["dep:faradice-gpu"]
+
+[lints]
+workspace = true

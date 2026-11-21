@@ -1,0 +1,20 @@
+# D3 S4: V4 with the victim's y+ face moved in by 0.028 µm (20 % of the gap). The
+# Palace finite difference against v4_three_wires is compared with faradice A0 at the same step
+# (docs/validation/D3.md, S4).
+schema_version = 1
+units = "um"
+
+[dielectric]
+eps_r = 3.9
+
+[[conductor]]
+net = "left"
+boxes = [[0.0, 0.00, 1.0, 10.0, 0.14, 1.36]]
+
+[[conductor]]
+net = "victim"
+boxes = [[0.0, 0.28, 1.0, 10.0, 0.392, 1.36]]
+
+[[conductor]]
+net = "right"
+boxes = [[0.0, 0.56, 1.0, 10.0, 0.70, 1.36]]

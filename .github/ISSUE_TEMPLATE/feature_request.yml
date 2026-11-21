@@ -1,0 +1,16 @@
+name: Feature request
+description: A new capability or a change in behavior
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you need
+      description: The problem you want to solve and the structures or flow it comes from.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: How you would like it to work. Cite published papers if the request depends on a specific method.

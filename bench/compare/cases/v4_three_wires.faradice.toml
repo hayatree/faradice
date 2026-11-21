@@ -1,0 +1,19 @@
+# V4: three parallel wires over the substrate (0.14 µm wide, 0.36 µm thick,
+# 0.14 µm spacing, 10 µm long, 1.0 µm above the substrate).
+schema_version = 1
+units = "um"
+
+[dielectric]
+eps_r = 3.9
+
+[[conductor]]
+net = "left"
+boxes = [[0.0, 0.00, 1.0, 10.0, 0.14, 1.36]]
+
+[[conductor]]
+net = "victim"
+boxes = [[0.0, 0.28, 1.0, 10.0, 0.42, 1.36]]
+
+[[conductor]]
+net = "right"
+boxes = [[0.0, 0.56, 1.0, 10.0, 0.70, 1.36]]

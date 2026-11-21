@@ -1,0 +1,29 @@
+# Sensitivities of the three-wire example (`faradice sens`, design D3 §3).
+# Face handles are (net, box index within the net, face); `dp` moves each face
+# by `weight · dp` along its outward normal. Lengths in µm.
+schema_version = 1
+
+[[param]]
+name = "w_victim"            # symmetric width of the victim
+faces = [
+  { net = "victim", box = 0, face = "y-", weight = 0.5 },
+  { net = "victim", box = 0, face = "y+", weight = 0.5 },
+]
+sigma = 0.005                # 1σ process variation → σ_C in sens.json
+
+[[param]]
+name = "t_victim"            # thickness (top face), selected by a point on it instead of a box index
+faces = [{ net = "victim", at = [5.0, 0.35, 1.36], face = "z+" }]
+
+[[param]]
+name = "y_right"             # move the right wire away from the victim
+translate = { net = "right", axis = "y" }
+
+[[delete]]
+name = "no_cross"            # the same extraction without the crossing wire (exact, paired)
+nets = ["cross"]
+
+[[add]]
+name = "shield"              # a grounded shield over the victim (exact, by replay)
+net = "shield"               # a new net (an existing non-target net would be extended)
+boxes = [[3.0, 0.2, 1.46, 7.0, 0.5, 1.52]]

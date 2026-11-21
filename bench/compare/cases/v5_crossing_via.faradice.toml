@@ -1,0 +1,26 @@
+# V5: two crossing wires on adjacent layers, and an L-shaped wire that changes
+# layer through a via (one net made of touching boxes).
+schema_version = 1
+units = "um"
+
+[dielectric]
+eps_r = 3.9
+
+# Lower layer (z 1.0-1.36), along x.
+[[conductor]]
+net = "lower"
+boxes = [[0.0, 1.0, 1.0, 6.0, 1.14, 1.36]]
+
+# Upper layer (z 1.66-2.02), along y, crossing "lower".
+[[conductor]]
+net = "upper"
+boxes = [[2.93, -1.0, 1.66, 3.07, 3.0, 2.02]]
+
+# L-shaped net: a lower-layer leg along x, a via, an upper-layer leg along y.
+[[conductor]]
+net = "ell"
+boxes = [
+  [0.0, 1.5, 1.0, 1.64, 1.64, 1.36],   # lower leg
+  [1.5, 1.5, 1.36, 1.64, 1.64, 1.66],  # via
+  [1.5, 1.5, 1.66, 1.64, 4.0, 2.02],   # upper leg
+]

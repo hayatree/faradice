@@ -1,0 +1,27 @@
+name: Bug report
+description: Wrong results, crashes, hangs or other defects
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected and what you got. Include error messages verbatim.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: >
+        The command line and the smallest input files that show the problem (structure or GDS,
+        technology file, configuration). Please do not attach files from non-redistributable PDKs.
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Output of `faradice --version`, the OS, the Rust version if built from source, and the engine (CPU or GPU).
+    validations:
+      required: true

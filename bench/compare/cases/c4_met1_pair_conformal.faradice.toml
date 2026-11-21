@@ -1,0 +1,50 @@
+# C4 (M2c validation): two met1 wires at minimum width and spacing (0.14 um)
+# in the SKY130-like stack of L6, with the NILD3_C conformal sidewall
+# dielectric (K = 3.5, 0.030 um wide) on met1. Values from the process stack
+# diagram of the public SKY130 PDK documentation (Apache-2.0,
+# https://skywater-pdk.readthedocs.io/en/main/rules/assumptions.html); see
+# docs/design/M2c_conformal_dielectrics.md section 1.
+schema_version = 1
+units = "um"
+
+[dielectric]
+eps_r = 4.0                  # NILD6 and above (z > 4.0211)
+
+[[dielectric.layer]]         # FOX + PSG
+z_top = 0.9361
+eps_r = 3.9
+
+[[dielectric.layer]]         # LINT (li1 level)
+z_top = 1.0361
+eps_r = 7.3
+
+[[dielectric.layer]]         # NILD2
+z_top = 1.3761
+eps_r = 4.05
+
+[[dielectric.layer]]         # NILD3 (met1 level)
+z_top = 2.0061
+eps_r = 4.5
+
+[[dielectric.layer]]         # NILD4 (met2 level)
+z_top = 2.7861
+eps_r = 4.2
+
+[[dielectric.layer]]         # NILD5 (met3 level)
+z_top = 4.0211
+eps_r = 4.1
+
+[[dielectric.conformal]]     # NILD3_C on the met1 sidewalls
+layer = "met1"
+side = 0.030
+eps_r = 3.5
+
+[[conductor]]
+net = "a"
+layer = "met1"
+boxes = [[0.0000, 0.0000, 1.3761, 0.1400, 6.0000, 1.7361]]
+
+[[conductor]]
+net = "b"
+layer = "met1"
+boxes = [[0.2800, 0.0000, 1.3761, 0.4200, 6.0000, 1.7361]]

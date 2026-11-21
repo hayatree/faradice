@@ -1,0 +1,228 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 4bfded8..22a5f05 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -100,7 +100,6 @@ wayland = [
+     "wayland-client",
+     "wayland-backend",
+     "wayland-protocols",
+-    "wayland-protocols-plasma",
+     "sctk",
+     "ahash",
+     "memmap2",
+@@ -287,11 +286,6 @@ version = "0.32.8"
+ features = ["staging"]
+ optional = true
+ 
+-[target.'cfg(all(unix, not(any(target_os = "redox", target_family = "wasm", target_os = "android", target_os = "ios", target_os = "macos"))))'.dependencies.wayland-protocols-plasma]
+-version = "0.3.8"
+-features = ["client"]
+-optional = true
+-
+ [target.'cfg(all(unix, not(any(target_os = "redox", target_family = "wasm", target_os = "android", target_os = "ios", target_os = "macos"))))'.dependencies.x11-dl]
+ version = "2.19.1"
+ optional = true
+diff --git a/src/platform_impl/linux/wayland/state.rs b/src/platform_impl/linux/wayland/state.rs
+index 13ef99c..1820e3d 100644
+--- a/src/platform_impl/linux/wayland/state.rs
++++ b/src/platform_impl/linux/wayland/state.rs
+@@ -29,7 +29,6 @@ use crate::platform_impl::wayland::seat::{
+     PointerConstraintsState, RelativePointerState, TextInputState, WinitPointerData,
+     WinitPointerDataExt, WinitSeatState,
+ };
+-use crate::platform_impl::wayland::types::kwin_blur::KWinBlurManager;
+ use crate::platform_impl::wayland::types::wp_fractional_scaling::FractionalScalingManager;
+ use crate::platform_impl::wayland::types::wp_viewporter::ViewporterState;
+ use crate::platform_impl::wayland::types::xdg_activation::XdgActivationState;
+@@ -106,8 +105,6 @@ pub struct WinitState {
+     /// Fractional scaling manager.
+     pub fractional_scaling_manager: Option<FractionalScalingManager>,
+ 
+-    /// KWin blur manager.
+-    pub kwin_blur_manager: Option<KWinBlurManager>,
+ 
+     /// Loop handle to re-register event sources, such as keyboard repeat.
+     pub loop_handle: LoopHandle<'static, Self>,
+@@ -176,7 +173,6 @@ impl WinitState {
+             window_events_sink: Default::default(),
+             viewporter_state,
+             fractional_scaling_manager,
+-            kwin_blur_manager: KWinBlurManager::new(globals, queue_handle).ok(),
+ 
+             seats,
+             text_input_state: TextInputState::new(globals, queue_handle).ok(),
+diff --git a/src/platform_impl/linux/wayland/types/kwin_blur.rs b/src/platform_impl/linux/wayland/types/kwin_blur.rs
+deleted file mode 100644
+index 83e82ad..0000000
+--- a/src/platform_impl/linux/wayland/types/kwin_blur.rs
++++ /dev/null
+@@ -1,68 +0,0 @@
+-//! Handling of KDE-compatible blur.
+-
+-use sctk::reexports::client::globals::{BindError, GlobalList};
+-use sctk::reexports::client::protocol::wl_surface::WlSurface;
+-use sctk::reexports::client::{delegate_dispatch, Connection, Dispatch, Proxy, QueueHandle};
+-use wayland_protocols_plasma::blur::client::org_kde_kwin_blur::OrgKdeKwinBlur;
+-use wayland_protocols_plasma::blur::client::org_kde_kwin_blur_manager::OrgKdeKwinBlurManager;
+-
+-use sctk::globals::GlobalData;
+-
+-use crate::platform_impl::wayland::state::WinitState;
+-
+-/// KWin blur manager.
+-#[derive(Debug, Clone)]
+-pub struct KWinBlurManager {
+-    manager: OrgKdeKwinBlurManager,
+-}
+-
+-impl KWinBlurManager {
+-    pub fn new(
+-        globals: &GlobalList,
+-        queue_handle: &QueueHandle<WinitState>,
+-    ) -> Result<Self, BindError> {
+-        let manager = globals.bind(queue_handle, 1..=1, GlobalData)?;
+-        Ok(Self { manager })
+-    }
+-
+-    pub fn blur(
+-        &self,
+-        surface: &WlSurface,
+-        queue_handle: &QueueHandle<WinitState>,
+-    ) -> OrgKdeKwinBlur {
+-        self.manager.create(surface, queue_handle, ())
+-    }
+-
+-    pub fn unset(&self, surface: &WlSurface) {
+-        self.manager.unset(surface)
+-    }
+-}
+-
+-impl Dispatch<OrgKdeKwinBlurManager, GlobalData, WinitState> for KWinBlurManager {
+-    fn event(
+-        _: &mut WinitState,
+-        _: &OrgKdeKwinBlurManager,
+-        _: <OrgKdeKwinBlurManager as Proxy>::Event,
+-        _: &GlobalData,
+-        _: &Connection,
+-        _: &QueueHandle<WinitState>,
+-    ) {
+-        unreachable!("no events defined for org_kde_kwin_blur_manager");
+-    }
+-}
+-
+-impl Dispatch<OrgKdeKwinBlur, (), WinitState> for KWinBlurManager {
+-    fn event(
+-        _: &mut WinitState,
+-        _: &OrgKdeKwinBlur,
+-        _: <OrgKdeKwinBlur as Proxy>::Event,
+-        _: &(),
+-        _: &Connection,
+-        _: &QueueHandle<WinitState>,
+-    ) {
+-        unreachable!("no events defined for org_kde_kwin_blur");
+-    }
+-}
+-
+-delegate_dispatch!(WinitState: [OrgKdeKwinBlurManager: GlobalData] => KWinBlurManager);
+-delegate_dispatch!(WinitState: [OrgKdeKwinBlur: ()] => KWinBlurManager);
+diff --git a/src/platform_impl/linux/wayland/types/mod.rs b/src/platform_impl/linux/wayland/types/mod.rs
+index 77e67f4..401fbd8 100644
+--- a/src/platform_impl/linux/wayland/types/mod.rs
++++ b/src/platform_impl/linux/wayland/types/mod.rs
+@@ -1,7 +1,6 @@
+ //! Wayland protocol implementation boilerplate.
+ 
+ pub mod cursor;
+-pub mod kwin_blur;
+ pub mod wp_fractional_scaling;
+ pub mod wp_viewporter;
+ pub mod xdg_activation;
+diff --git a/src/platform_impl/linux/wayland/window/state.rs b/src/platform_impl/linux/wayland/window/state.rs
+index 1ef7a06..909b8d5 100644
+--- a/src/platform_impl/linux/wayland/window/state.rs
++++ b/src/platform_impl/linux/wayland/window/state.rs
+@@ -28,14 +28,12 @@ use sctk::shell::WaylandSurface;
+ use sctk::shm::slot::SlotPool;
+ use sctk::shm::Shm;
+ use sctk::subcompositor::SubcompositorState;
+-use wayland_protocols_plasma::blur::client::org_kde_kwin_blur::OrgKdeKwinBlur;
+ 
+ use crate::cursor::CustomCursor as RootCustomCursor;
+ use crate::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, Size};
+ use crate::error::{ExternalError, NotSupportedError};
+ use crate::platform_impl::wayland::logical_to_physical_rounded;
+ use crate::platform_impl::wayland::types::cursor::{CustomCursor, SelectedCursor};
+-use crate::platform_impl::wayland::types::kwin_blur::KWinBlurManager;
+ use crate::platform_impl::{PlatformCustomCursor, WindowId};
+ use crate::window::{CursorGrabMode, CursorIcon, ImePurpose, ResizeDirection, Theme};
+ 
+@@ -143,8 +141,6 @@ pub struct WindowState {
+ 
+     viewport: Option<WpViewport>,
+     fractional_scale: Option<WpFractionalScaleV1>,
+-    blur: Option<OrgKdeKwinBlur>,
+-    blur_manager: Option<KWinBlurManager>,
+ 
+     /// Whether the client side decorations have pending move operations.
+     ///
+@@ -184,8 +180,6 @@ impl WindowState {
+             .map(|fsm| fsm.fractional_scaling(window.wl_surface(), queue_handle));
+ 
+         Self {
+-            blur: None,
+-            blur_manager: winit_state.kwin_blur_manager.clone(),
+             compositor,
+             connection,
+             csd_fails: false,
+@@ -1077,20 +1071,15 @@ impl WindowState {
+         }
+     }
+ 
+-    /// Make window background blurred
++    /// Make window background blurred.
++    ///
++    /// Not supported in this build: the KDE blur protocol
++    /// (`wayland-protocols-plasma`, LGPL-2.1-or-later protocol files) is
++    /// removed by the faradice license patch.
+     #[inline]
+     pub fn set_blur(&mut self, blurred: bool) {
+-        if blurred && self.blur.is_none() {
+-            if let Some(blur_manager) = self.blur_manager.as_ref() {
+-                let blur = blur_manager.blur(self.window.wl_surface(), &self.queue_handle);
+-                blur.commit();
+-                self.blur = Some(blur);
+-            } else {
+-                info!("Blur manager unavailable, unable to change blur")
+-            }
+-        } else if !blurred && self.blur.is_some() {
+-            self.blur_manager.as_ref().unwrap().unset(self.window.wl_surface());
+-            self.blur.take().unwrap().release();
++        if blurred {
++            info!("Window blur is not supported in this build")
+         }
+     }
+ 
+@@ -1149,10 +1138,6 @@ impl WindowState {
+ 
+ impl Drop for WindowState {
+     fn drop(&mut self) {
+-        if let Some(blur) = self.blur.take() {
+-            blur.release();
+-        }
+-
+         if let Some(fs) = self.fractional_scale.take() {
+             fs.destroy();
+         }
+diff --git a/src/window.rs b/src/window.rs
+index e0158ef..8b3c32a 100644
+--- a/src/window.rs
++++ b/src/window.rs
+@@ -954,7 +954,7 @@ impl Window {
+     /// ## Platform-specific
+     ///
+     /// - **Android / iOS / X11 / Web / Windows:** Unsupported.
+-    /// - **Wayland:** Only works with org_kde_kwin_blur_manager protocol.
++    /// - **Wayland:** Not supported (removed by the faradice license patch).
+     #[inline]
+     pub fn set_blur(&self, blur: bool) {
+         let _span = tracing::debug_span!("winit::Window::set_blur", blur).entered();

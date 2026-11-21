@@ -1,0 +1,29 @@
+[package]
+name = "faradice-frw"
+description = "Floating random walk capacitance solver core for faradice"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "README.md"
+
+[dependencies]
+faradice-core.workspace = true
+faradice-geom.workspace = true
+rayon.workspace = true
+thiserror.workspace = true
+
+[features]
+# Capacitance sensitivities (design D3). Off by default; `solve` is unaffected.
+sensitivity = []
+
+[dev-dependencies]
+proptest.workspace = true
+rayon.workspace = true
+
+[lints]
+workspace = true

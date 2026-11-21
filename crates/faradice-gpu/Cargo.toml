@@ -1,0 +1,28 @@
+[package]
+name = "faradice-gpu"
+description = "GPU (wgpu/Vulkan) walk engine for the faradice capacitance extractor"
+version.workspace = true
+edition.workspace = true
+# wgpu requires a newer toolchain than the rest of the workspace.
+rust-version = "1.87"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "README.md"
+
+[dependencies]
+faradice-core.workspace = true
+faradice-geom.workspace = true
+faradice-frw.workspace = true
+wgpu = { version = "30", default-features = false, features = ["std", "vulkan", "wgsl", "parking_lot"] }
+pollster = "0.4"
+bytemuck = { version = "1", features = ["derive"] }
+rayon.workspace = true
+
+[dev-dependencies]
+faradice-frw.workspace = true
+
+[lints]
+workspace = true

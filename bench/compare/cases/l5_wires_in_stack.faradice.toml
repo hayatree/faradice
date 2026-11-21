@@ -1,0 +1,31 @@
+# L5 (M2a validation): two wires sitting on a thin high-k layer and a cross
+# wire that straddles an interface, in a four-layer stratified stack.
+schema_version = 1
+units = "um"
+
+[dielectric]
+eps_r = 3.0                  # above z = 1.4
+
+[[dielectric.layer]]
+z_top = 0.6
+eps_r = 3.9
+
+[[dielectric.layer]]         # thin nitride-like layer under the wires
+z_top = 0.65
+eps_r = 7.5
+
+[[dielectric.layer]]
+z_top = 1.4
+eps_r = 4.2
+
+[[conductor]]
+net = "a"
+boxes = [[0.0, 0.0, 0.65, 6.0, 0.3, 1.0]]
+
+[[conductor]]
+net = "b"
+boxes = [[0.0, 0.6, 0.65, 6.0, 0.9, 1.0]]
+
+[[conductor]]
+net = "cross"
+boxes = [[2.5, -1.0, 1.2, 2.9, 1.9, 1.6]]

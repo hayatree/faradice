@@ -1,0 +1,42 @@
+[package]
+name = "faradice-gui"
+description = "Desktop GUI for faradice (iced)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "faradice-gui"
+path = "src/main.rs"
+
+[dependencies]
+faradice-core = { path = "../../crates/faradice-core" }
+faradice-geom = { path = "../../crates/faradice-geom" }
+faradice-io = { path = "../../crates/faradice-io" }
+faradice-engine = { path = "../../crates/faradice-engine" }
+iced = { version = "=0.14.0", default-features = false, features = [
+    "wgpu",
+    "tiny-skia",
+    "crisp",
+    "web-colors",
+    "thread-pool",
+    "linux-theme-detection",
+    "x11",
+    "wayland",
+    "canvas",
+    "advanced",
+] }
+rfd = { version = "0.18", default-features = false, features = ["xdg-portal", "wayland"] }
+bytemuck = { version = "1", features = ["derive"] }
+glam = "0.30"
+
+[features]
+# GPU walk engine (wgpu/Vulkan) selectable in the run panel.
+gpu = ["faradice-engine/gpu"]
+
+[lints]
+workspace = true

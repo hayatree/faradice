@@ -1,0 +1,6 @@
+# D3 S4: one-sided A0 at the step of d3_s4_victim_shrunk (run on v4_three_wires).
+schema_version = 1
+richardson = false
+[[param]]
+name = "victim_yplus"
+faces = [{ net = "victim", box = 0, face = "y+", delta = 0.028 }]

@@ -1,0 +1,127 @@
+# SkyWater SKY130 interconnect stack for faradice with a stratified dielectric
+# (design M2a) and conformal sidewall dielectrics (design M2c).
+#
+# Layer numbers, heights and the per-zone dielectric constants follow the
+# process stack diagram of the public SKY130 PDK documentation (Apache-2.0,
+# https://skywater-pdk.readthedocs.io/en/main/rules/assumptions.html). They are
+# nominal values provided for convenience and must be verified against the PDK
+# version you use.
+#
+# The conformal sidewall dielectrics NILD3_C (met1) and NILD4_C (met2), K = 3.5,
+# are modelled as shells (design M2c): 0.030 um wide on the sidewalls, none on
+# the metal tops. The width is read off the dimension line drawn next to the
+# strips in the stack diagram (metal_stack.svg); it is not labelled with the
+# layer name, so treat it as approximate. Corners are square (the real ones are
+# rounded).
+schema_version = 1
+name = "sky130 (approximate, stratified and conformal dielectrics)"
+eps_r = 4.0
+substrate_z = 0.0
+
+# Stratified stack, bottom-up: each zone between consecutive metal bottoms gets
+# the K printed for it in the process stack diagram. The passivation above met5
+# (nitride, oxide, polyimide) is not modelled; eps_r above covers NILD6 up.
+
+[[dielectric]]          # FOX + PSG
+z_top = 0.9361
+eps_r = 3.9
+
+[[dielectric]]          # LINT (li1 level)
+z_top = 1.0361
+eps_r = 7.3
+
+[[dielectric]]          # NILD2
+z_top = 1.3761
+eps_r = 4.05
+
+[[dielectric]]          # NILD3 (met1 level)
+z_top = 2.0061
+eps_r = 4.5
+
+[[dielectric]]          # NILD4 (met2 level)
+z_top = 2.7861
+eps_r = 4.2
+
+[[dielectric]]          # NILD5 (met3 level)
+z_top = 4.0211
+eps_r = 4.1
+
+[[layer]]
+name = "li1"
+gds = [67, 20]
+also = [[67, 16]]
+zmin = 0.9361
+thickness = 0.1
+labels = [[67, 5], [67, 16]]
+
+[[layer]]
+name = "met1"
+gds = [68, 20]
+also = [[68, 16]]
+zmin = 1.3761
+thickness = 0.36
+labels = [[68, 5], [68, 16]]
+conformal = { side = 0.030, top = 0.0, eps_r = 3.5 }   # NILD3_C
+
+[[layer]]
+name = "met2"
+gds = [69, 20]
+also = [[69, 16]]
+zmin = 2.0061
+thickness = 0.36
+labels = [[69, 5], [69, 16]]
+conformal = { side = 0.030, top = 0.0, eps_r = 3.5 }   # NILD4_C
+
+[[layer]]
+name = "met3"
+gds = [70, 20]
+also = [[70, 16]]
+zmin = 2.7861
+thickness = 0.845
+labels = [[70, 5], [70, 16]]
+
+[[layer]]
+name = "met4"
+gds = [71, 20]
+also = [[71, 16]]
+zmin = 4.0211
+thickness = 0.845
+labels = [[71, 5], [71, 16]]
+
+[[layer]]
+name = "met5"
+gds = [72, 20]
+also = [[72, 16]]
+zmin = 5.3711
+thickness = 1.26
+labels = [[72, 5], [72, 16]]
+
+[[via]]
+name = "mcon"
+gds = [67, 44]
+bottom = "li1"
+top = "met1"
+
+[[via]]
+name = "via"
+gds = [68, 44]
+bottom = "met1"
+top = "met2"
+
+[[via]]
+name = "via2"
+gds = [69, 44]
+bottom = "met2"
+top = "met3"
+
+[[via]]
+name = "via3"
+gds = [70, 44]
+bottom = "met3"
+top = "met4"
+
+[[via]]
+name = "via4"
+gds = [71, 44]
+bottom = "met4"
+top = "met5"
