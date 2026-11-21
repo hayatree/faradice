@@ -55,7 +55,8 @@ Thank you for your interest in faradice!
    request to run everything on it.
 
 4. **Golden tests** (`crates/faradice-engine/tests/golden.rs`) compare short fixed-seed
-   runs with stored results, bit for bit. A change that keeps every walk the same (a
+   runs with stored results (counts exactly, sums to a
+   relative 1e-9). A change that keeps every walk the same (a
    refactor, most optimizations) passes them unchanged. If your change is meant to alter
    the numerics, run the full tests (`cargo test --workspace --all-features`, or label the
    pull request `full-validation`), then refresh the stored results with

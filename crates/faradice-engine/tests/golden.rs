@@ -1,9 +1,13 @@
 //! Golden results: small fixed-sample runs whose statistics must match the
-//! stored files exactly.
+//! stored files.
 //!
-//! faradice is bit-reproducible for a given seed, so any change to the
-//! numerics (sampling, tables, walk rules, estimators) changes these values,
-//! while refactors and optimizations that keep every walk the same do not.
+//! faradice is reproducible for a given seed, so any change to the numerics
+//! (sampling, tables, walk rules, estimators) changes these values, while
+//! refactors and optimizations that keep every walk the same do not. Counts
+//! must match exactly and sums to a relative 1e-9: the math library of another
+//! machine can round a transcendental function differently in the last bit,
+//! which moves a sum by about 1e-16, while a single changed walk among the
+//! 8192 of a net moves it by about 1e-4.
 //! The runs are far too short to say anything about accuracy; that is the job
 //! of the statistical validation tests (`faradice-frw/tests/`, run in full on
 //! `main`).
@@ -19,6 +23,7 @@ use std::path::PathBuf;
 
 use faradice_engine::{Project, RunRequest, run};
 use faradice_io::config::Config;
+use serde_json::Value;
 
 /// Walks per net: enough to visit every walk rule of the cases, small enough
 /// for a few seconds per case on four cores.
@@ -56,8 +61,6 @@ fn check(name: &str, case: &str) {
         &(),
     )
     .unwrap();
-    // `serde_json` writes the shortest representation that reads back to the
-    // same `f64`, so equal text means bit-identical values.
     let got = serde_json::to_string_pretty(&serde_json::json!({
         "eps_stop": out.result.eps_stop,
         "targets": out.result.targets,
@@ -72,24 +75,47 @@ fn check(name: &str, case: &str) {
     }
     let want = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("{}: {e}; create it with FARADICE_BLESS=1", path.display()));
-    if got != want {
-        let diff = got
-            .lines()
-            .zip(want.lines())
-            .enumerate()
-            .find(|(_, (g, w))| g != w)
-            .map_or_else(String::new, |(i, (g, w))| {
-                format!(
-                    "first difference at line {}:\n  got:  {g}\n  want: {w}\n",
-                    i + 1
-                )
-            });
+    let got: Value = serde_json::from_str(&got).unwrap();
+    let want: Value = serde_json::from_str(&want).unwrap();
+    if let Some(diff) = first_difference(&got, &want, String::new()) {
         panic!(
-            "{name}: the statistics differ from {}.\n{diff}\
+            "{name}: the statistics differ from {}.\n{diff}\n\
              If the numerics were meant to change, run the full validation and refresh the \
              golden files (see the header of tests/golden.rs).",
             path.display()
         );
+    }
+}
+
+/// Relative tolerance of floating-point values (see the module header).
+const REL_TOL: f64 = 1e-9;
+
+/// The first place where `got` and `want` differ: integers, strings and
+/// structure exactly, other numbers to [`REL_TOL`].
+fn first_difference(got: &Value, want: &Value, at: String) -> Option<String> {
+    let differ = || Some(format!("at {at}: got {got}, want {want}"));
+    match (got, want) {
+        (Value::Number(g), Value::Number(w)) if g.is_f64() || w.is_f64() => {
+            let (g, w) = (g.as_f64().unwrap(), w.as_f64().unwrap());
+            if (g - w).abs() <= REL_TOL * g.abs().max(w.abs()) {
+                None
+            } else {
+                differ()
+            }
+        }
+        (Value::Array(g), Value::Array(w)) if g.len() == w.len() => g
+            .iter()
+            .zip(w)
+            .enumerate()
+            .find_map(|(i, (g, w))| first_difference(g, w, format!("{at}[{i}]"))),
+        (Value::Object(g), Value::Object(w))
+            if g.len() == w.len() && g.keys().all(|k| w.contains_key(k)) =>
+        {
+            g.iter()
+                .find_map(|(k, v)| first_difference(v, &w[k], format!("{at}.{k}")))
+        }
+        _ if got == want => None,
+        _ => differ(),
     }
 }
 
