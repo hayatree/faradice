@@ -11,6 +11,7 @@
 
 mod app;
 mod cli;
+mod matrix;
 mod plot;
 mod table;
 mod viewport;

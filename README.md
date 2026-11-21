@@ -28,7 +28,7 @@ open PDKs; the repository ships a SKY130 technology file.
   positions; exact deletions and additions of conductors; grounding, floating or merging
   conductors without re-solving; maps of where a small shield or fill would change a
   coupling most.
-- **Desktop GUI** (iced) with live convergence, results and a 3D view.
+- **Desktop GUI** (iced) with live convergence, results, the capacitance matrix and a 3D view.
 - **Experimental GPU engine** (wgpu/Vulkan, uniform dielectric only).
 
 ## Limitations
@@ -102,7 +102,7 @@ GDSII input with connectivity tracing (labels → nets):
 ./target/release/faradice solve examples/bus.gds --tech tech/sky130_uniform.tech.toml -o out
 ```
 
-Desktop GUI (iced; live convergence, results, 3D view):
+Desktop GUI (iced; live convergence, results, capacitance matrix, 3D view):
 
 ```sh
 cd gui && vendor/fetch.sh && cargo run --release -- ../examples/bus.gds --tech ../tech/sky130_uniform.tech.toml

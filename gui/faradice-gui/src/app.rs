@@ -15,6 +15,7 @@ use iced::widget::{
 use iced::{Element, Fill, Subscription, Task, Theme, keyboard, window};
 
 use crate::cli::{Equivalent, preset_name};
+use crate::matrix::{self, Columns};
 use crate::plot::Convergence;
 use crate::table::{self, Rows, Scroll, col};
 use crate::viewport::Scene;
@@ -75,6 +76,7 @@ fn engines() -> Vec<EngineChoice> {
 pub(crate) enum Tab {
     Progress,
     Results,
+    Matrix,
     View3d,
     Messages,
 }
@@ -114,6 +116,8 @@ struct RunView {
     command: String,
     tolerance: f64,
     confidence: f64,
+    /// Columns of the matrix view, rebuilt whenever the report changes.
+    columns: Columns,
 }
 
 impl RunView {
@@ -126,6 +130,13 @@ impl RunView {
 
     fn running(&self) -> bool {
         !self.state.is_terminal()
+    }
+
+    fn report_changed(&mut self) {
+        self.columns = self
+            .report()
+            .map(|r| Columns::new(r, matrix::MAX_COLUMNS))
+            .unwrap_or_default();
     }
 }
 
@@ -155,6 +166,7 @@ pub(crate) struct App {
     scroll_progress: Scroll,
     scroll_results: Scroll,
     scroll_couplings: Scroll,
+    scroll_matrix: Scroll,
     scene: Scene,
     status: String,
     /// Self-test mode (`FARADICE_GUI_SHOTS=<dir>`): run, screenshot each
@@ -169,9 +181,10 @@ pub(crate) struct App {
 const COUPLINGS_ID: &str = "couplings";
 
 /// Steps of the self-test after a run finished.
-const SHOTS: [(&str, Tab, bool); 4] = [
+const SHOTS: [(&str, Tab, bool); 5] = [
     ("results", Tab::Results, false),
     ("results_selected", Tab::Results, true),
+    ("matrix", Tab::Matrix, true),
     ("view3d", Tab::View3d, true),
     ("progress", Tab::Progress, true),
 ];
@@ -200,6 +213,7 @@ pub(crate) enum Message {
     ScrollProgress(scrollable::Viewport),
     ScrollResults(scrollable::Viewport),
     ScrollCouplings(scrollable::Viewport),
+    ScrollMatrix(scrollable::Viewport),
     CopyCommand,
     Export,
     ExportTo(Option<PathBuf>, Box<RunOutput>, String),
@@ -235,6 +249,7 @@ impl App {
             scroll_progress: Scroll::default(),
             scroll_results: Scroll::default(),
             scroll_couplings: Scroll::default(),
+            scroll_matrix: Scroll::default(),
             scene: Scene::default(),
             shots: std::env::var_os("FARADICE_GUI_SHOTS").map(PathBuf::from),
             bench: std::env::var_os("FARADICE_GUI_BENCH").map(|_| Vec::new()),
@@ -473,6 +488,7 @@ impl App {
             last_refresh: None,
             output: None,
             elapsed: 0.0,
+            columns: Columns::default(),
             command,
             tolerance,
             confidence,
@@ -523,6 +539,7 @@ impl App {
                         if v != run.partial_version {
                             run.partial_version = v;
                             run.partial = job.partial().map(|p| p.report);
+                            run.report_changed();
                         }
                     }
                 }
@@ -556,6 +573,7 @@ impl App {
                 });
                 self.scene.selected = None;
                 run.output = Some(out);
+                run.report_changed();
                 run.job = None;
                 self.tab = Tab::Results;
             }
@@ -694,6 +712,7 @@ impl App {
             Message::ScrollProgress(v) => self.scroll_progress.set(&v),
             Message::ScrollResults(v) => self.scroll_results.set(&v),
             Message::ScrollCouplings(v) => self.scroll_couplings.set(&v),
+            Message::ScrollMatrix(v) => self.scroll_matrix.set(&v),
             Message::CopyCommand => {
                 if let Ok((_, cmd)) = self.request() {
                     self.status = "CLI command copied to the clipboard.".into();
@@ -1001,6 +1020,7 @@ impl App {
         row![
             t("Progress", Tab::Progress),
             t("Results", Tab::Results),
+            t("Matrix", Tab::Matrix),
             t("3D view", Tab::View3d),
             button(
                 text(if msgs > 0 {
@@ -1026,6 +1046,7 @@ impl App {
         let content = match self.tab {
             Tab::Progress => self.progress_view(),
             Tab::Results => self.results_view(),
+            Tab::Matrix => self.matrix_view(),
             Tab::View3d => self.view_3d(),
             Tab::Messages => self.messages_view(),
         };
@@ -1231,6 +1252,124 @@ impl App {
         .into()
     }
 
+    fn matrix_view(&self) -> Element<'_, Message> {
+        const LABEL_W: f32 = 160.0;
+        const CELL_W: f32 = 92.0;
+        let Some(run) = &self.run else {
+            return table::empty(
+                "No results yet",
+                "The matrix appears here while the run progresses.",
+            );
+        };
+        let Some(report) = run.report() else {
+            return table::empty(
+                "No results yet",
+                "The matrix appears here while the run progresses.",
+            );
+        };
+        let cols = &run.columns;
+        let confidence = run.confidence;
+        let fixed = |s: String, w: f32, right: bool| {
+            let t = text(s)
+                .size(12)
+                .wrapping(iced::widget::text::Wrapping::None);
+            let t = if right {
+                t.align_x(iced::alignment::Horizontal::Right)
+            } else {
+                t
+            };
+            container(t.width(Fill))
+                .width(w)
+                .height(table::ROW_HEIGHT)
+                .padding([0, 6])
+                .align_y(iced::Center)
+                .clip(true)
+        };
+        let header = iced::widget::Row::with_children(
+            std::iter::once(fixed("target \\ net".into(), LABEL_W, false).into()).chain(
+                cols.nets
+                    .iter()
+                    .map(|n| fixed(n.clone(), CELL_W, true).into())
+                    .chain(std::iter::once(fixed("ground".into(), CELL_W, true).into())),
+            ),
+        );
+        let sel = self
+            .selected
+            .as_ref()
+            .and_then(|s| report.nets.iter().position(|n| &n.net == s));
+        let len = report.nets.len();
+        let range = self.scroll_matrix.visible(len);
+        #[allow(clippy::cast_precision_loss)]
+        let top = range.start as f32 * table::ROW_HEIGHT;
+        #[allow(clippy::cast_precision_loss)]
+        let bottom = (len - range.end) as f32 * table::ROW_HEIGHT;
+        let mut body = column![space().height(top)];
+        for i in range {
+            let n = &report.nets[i];
+            let cells = cols.cells(n, confidence).into_iter().map(|c| {
+                let Some(c) = c else {
+                    return fixed(String::new(), CELL_W, true).into();
+                };
+                fixed(significant_digits(c.value), CELL_W, true)
+                    .style(move |theme: &Theme| matrix_cell_style(theme, c))
+                    .into()
+            });
+            let r = iced::widget::Row::with_children(
+                std::iter::once(fixed(n.net.clone(), LABEL_W, false).into()).chain(cells),
+            );
+            let is_sel = sel == Some(i);
+            body = body.push(
+                button(r)
+                    .padding(0)
+                    .on_press(Message::Select(n.net.clone()))
+                    .style(move |theme: &Theme, status| {
+                        let base = if is_sel {
+                            button::primary(theme, status)
+                        } else {
+                            button::text(theme, status)
+                        };
+                        button::Style {
+                            border: iced::Border::default(),
+                            ..base
+                        }
+                    }),
+            );
+        }
+        body = body.push(space().height(bottom));
+        #[allow(clippy::cast_precision_loss)]
+        let width = LABEL_W + CELL_W * cols.len() as f32;
+        let grid = column![
+            container(header).width(width).style(container::rounded_box),
+            scrollable(body)
+                .on_scroll(Message::ScrollMatrix)
+                .width(width)
+                .height(Fill),
+        ];
+        let mut caption = format!(
+            "{len} target nets × {} nets + ground · diagonal: total C, other cells: coupling C \
+             [fF] · shading: share of the row's total · faded: within {confidence}σ of zero",
+            cols.nets.len()
+        );
+        if cols.hidden > 0 {
+            caption += &format!(" · {} more nets not shown", cols.hidden);
+        }
+        let partial = run.output.is_none();
+        let mut out = column![].spacing(6);
+        if partial {
+            out = out.push(text("Live partial results (not final)").size(12));
+        }
+        out.push(text(caption).size(12))
+            .push(
+                scrollable(grid)
+                    .direction(scrollable::Direction::Horizontal(
+                        scrollable::Scrollbar::default(),
+                    ))
+                    .width(Fill)
+                    .height(Fill),
+            )
+            .into()
+    }
+
     fn view_3d(&self) -> Element<'_, Message> {
         if self.scene.len() == 0 {
             return table::empty("3D view", "The solved geometry appears here after a run.");
@@ -1299,5 +1438,53 @@ impl App {
             }
         }
         r.into()
+    }
+}
+
+/// `v` with four significant digits (fixed point, as in the other tables).
+fn significant_digits(v: f64) -> String {
+    if v == 0.0 || !v.is_finite() {
+        return format!("{v}");
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let decimals = (3 - v.abs().log10().floor() as i32).clamp(0, 6) as usize;
+    format!("{v:.decimals$}")
+}
+
+/// Shading of a matrix cell: the diagonal in a neutral tone, couplings and
+/// ground by their share of the row's total, values within the confidence
+/// band faded.
+fn matrix_cell_style(theme: &Theme, c: matrix::Cell) -> container::Style {
+    let p = theme.extended_palette();
+    let background = if c.diagonal {
+        p.background.strong.color
+    } else {
+        #[allow(clippy::cast_possible_truncation)]
+        let share = c.share.clamp(0.0, 1.0) as f32;
+        p.primary.base.color.scale_alpha(0.06 + 0.7 * share.sqrt())
+    };
+    let text = theme.palette().text;
+    container::Style {
+        background: Some(background.into()),
+        text_color: Some(if c.significant {
+            text
+        } else {
+            text.scale_alpha(0.4)
+        }),
+        ..container::Style::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::significant_digits;
+
+    #[test]
+    fn four_significant_digits() {
+        assert_eq!(significant_digits(12.3456), "12.35");
+        assert_eq!(significant_digits(0.0012346), "0.001235");
+        assert_eq!(significant_digits(-2678.18), "-2678");
+        assert_eq!(significant_digits(123_456.0), "123456");
+        assert_eq!(significant_digits(0.0), "0");
     }
 }
