@@ -48,11 +48,23 @@ Thank you for your interest in faradice!
    cargo deny --all-features check
    ```
 
-   CI runs the same checks on every pull request.
+   On a pull request, CI checks what the change can affect: the tests of the changed
+   crates and of the crates that depend on them, without the long statistical validation
+   tests of `faradice-frw`, and the GUI jobs only when the GUI or a crate it uses changed.
+   `main` and a weekly run check everything. Add the label `full-validation` to a pull
+   request to run everything on it.
 
-4. Add or update tests. Numerical code should be checked against analytical solutions or
+4. **Golden tests** (`crates/faradice-engine/tests/golden.rs`) compare short fixed-seed
+   runs with stored results, bit for bit. A change that keeps every walk the same (a
+   refactor, most optimizations) passes them unchanged. If your change is meant to alter
+   the numerics, run the full tests (`cargo test --workspace --all-features`, or label the
+   pull request `full-validation`), then refresh the stored results with
+   `FARADICE_BLESS=1 cargo test -p faradice-engine --test golden` and commit them with the
+   change.
+
+5. Add or update tests. Numerical code should be checked against analytical solutions or
    independent references, with tolerances justified by the statistical error.
-5. Update `CHANGELOG.md` under "Unreleased" for user-visible changes.
+6. Update `CHANGELOG.md` under "Unreleased" for user-visible changes.
 
 ## Licensing of contributions
 

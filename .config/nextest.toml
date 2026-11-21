@@ -1,0 +1,26 @@
+# cargo-nextest configuration (https://nexte.st).
+#
+# Profiles:
+# - `default`: every test (`cargo nextest run --workspace --all-features`).
+# - `pr`: everything except the long statistical validation tests of
+#   faradice-frw. Pull requests run this profile on the crates their changes
+#   affect; the golden tests (faradice-engine/tests/golden.rs) catch any change
+#   to the numerics in seconds. `main`, the weekly run and pull requests
+#   labelled `full-validation` run the default profile.
+
+[profile.default]
+# Statistical tests take minutes on a 4-core runner; report, do not kill.
+slow-timeout = { period = "120s" }
+
+[profile.pr]
+default-filter = """
+not (
+    binary_id(faradice-frw::boxes)
+    | binary_id(faradice-frw::stack)
+    | binary_id(faradice-frw::sensitivity)
+    | binary_id(faradice-frw::replay)
+    | binary_id(faradice-frw::observer)
+    | binary_id(faradice-frw::shell_sens)
+    | binary_id(faradice-frw::validation)
+)
+"""

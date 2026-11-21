@@ -7,6 +7,16 @@ minor versions may change file formats and interfaces.
 
 ## [Unreleased]
 
+### Added
+
+- Golden tests (`faradice-engine/tests/golden.rs`): short fixed-seed runs of a uniform, a
+  stratified and a conformal-shell case, compared bit for bit with stored results.
+
+### Changed
+
+- CI on pull requests checks only what a change can affect, without the long validation
+  tests; `main`, a weekly run and the `full-validation` label run everything.
+
 ## [0.1.0]
 
 First public release.
