@@ -7,18 +7,7 @@ minor versions may change file formats and interfaces.
 
 ## [Unreleased]
 
-### Added
-
-- Golden tests (`faradice-engine/tests/golden.rs`): short fixed-seed runs of a uniform, a
-  stratified and a conformal-shell case, compared with stored results.
-- GUI: a Matrix tab showing the capacitance matrix of the target nets.
-
-### Changed
-
-- CI on pull requests checks only what a change can affect, without the long validation
-  tests; `main`, a weekly run and the `full-validation` label run everything.
-
-## [0.1.0]
+## [0.1.0] - 2026-11-22
 
 First public release.
 
@@ -54,9 +43,12 @@ First public release.
 
 ### Tools
 
-- Desktop GUI (iced, `gui/`): live convergence, results and a 3D view.
+- Desktop GUI (iced, `gui/`): live convergence, results, the capacitance matrix and a 3D
+  view.
 - Experimental GPU walk engine (wgpu/Vulkan, uniform dielectric; CLI feature `gpu`).
 - `bench/compare/`: accuracy comparisons with Palace (FEM) and FasterCap (BEM).
+- Golden tests: short fixed-seed runs whose statistics must match stored results, so
+  numerical changes show up in every pull request.
 
 ### Known limitations
 
