@@ -1,13 +1,24 @@
 name: CI
 
+# Pull requests check what their changes can affect (see
+# .github/scripts/ci_plan.py): nothing for documentation, the GUI jobs only
+# when the GUI or a crate it uses changed, and the tests of the changed crates
+# and their dependents without the long statistical validation tests (the
+# golden tests catch numerical changes). `main`, the weekly run, manual runs
+# and pull requests labelled `full-validation` check everything.
 on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "17 3 * * 1" # Mondays 03:17 UTC: new advisories, toolchain changes
   workflow_dispatch:
 
+# Labels other than `full-validation` start no checks, and must not cancel a
+# running one: they get a group of their own.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'full-validation' && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -18,7 +29,34 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
+  plan:
+    if: github.event.action != 'labeled' || github.event.label.name == 'full-validation'
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.plan.outputs.rust }}
+      full: ${{ steps.plan.outputs.full }}
+      filter: ${{ steps.plan.outputs.filter }}
+      gui: ${{ steps.plan.outputs.gui }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'full-validation') }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" != pull_request ] || [ "$FULL_LABEL" = true ]; then
+            python3 .github/scripts/ci_plan.py --full
+          else
+            python3 .github/scripts/ci_plan.py "$BASE" "$HEAD"
+          fi
+
   fmt:
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +66,8 @@ jobs:
       - run: cargo fmt --all --check
 
   clippy:
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,14 +79,30 @@ jobs:
 
   # Linux is the primary (and for now only) supported platform; EDA flows run on Linux.
   test:
+    needs: plan
+    if: needs.plan.outputs.rust == 'true' && needs.plan.outputs.filter != 'none()'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --workspace --all-features --locked
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - name: Tests (full)
+        if: needs.plan.outputs.full == 'true'
+        run: cargo nextest run --workspace --all-features --locked
+      - name: Tests (affected crates, without the long validation tests)
+        if: needs.plan.outputs.full != 'true'
+        env:
+          FILTER: ${{ needs.plan.outputs.filter }}
+        run: cargo nextest run --workspace --all-features --locked --profile pr --no-tests=pass -E "$FILTER"
+      - name: Doc tests
+        run: cargo test --workspace --all-features --locked --doc
 
   msrv:
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,6 +112,8 @@ jobs:
       - run: cargo check --workspace --exclude faradice-gpu --locked
 
   docs:
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
     runs-on: ubuntu-latest
     env:
       RUSTDOCFLAGS: -D warnings
@@ -66,6 +124,8 @@ jobs:
       - run: cargo doc --workspace --no-deps --all-features --locked
 
   deny:
+    needs: plan
+    if: needs.plan.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,6 +133,8 @@ jobs:
 
   # The iced GUI is a separate workspace (gui/) with patched Wayland crates.
   gui:
+    needs: plan
+    if: needs.plan.outputs.gui == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -92,6 +154,8 @@ jobs:
       - run: cargo test --all-features --locked
 
   gui-deny:
+    needs: plan
+    if: needs.plan.outputs.gui == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
