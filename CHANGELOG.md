@@ -11,6 +11,7 @@ minor versions may change file formats and interfaces.
 
 - Golden tests (`faradice-engine/tests/golden.rs`): short fixed-seed runs of a uniform, a
   stratified and a conformal-shell case, compared with stored results.
+- GUI: a Matrix tab showing the capacitance matrix of the target nets.
 
 ### Changed
 

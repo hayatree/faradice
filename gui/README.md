@@ -29,6 +29,9 @@ the 3D view stays empty.
   (relative error vs walks with the 1/√N guide and the target), cancel (`Esc`)
   with partial results kept.
 - Results: totals, ground, σ and couplings per net, live while running.
+- Matrix: the capacitance matrix of the target nets (fF), totals on the diagonal, each
+  coupling and ground shaded by its share of the row's total, values within the
+  confidence band faded.
 - 3D view: depth-tested boxes coloured by net; drag to orbit, right/middle
   drag to pan, wheel to zoom; the net selected in Results is highlighted.
 - Export (`Ctrl+E`): `result.json`, `report.json`, `report.csv` and SPEF.
