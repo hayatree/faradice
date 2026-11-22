@@ -29,7 +29,10 @@ fn slab_cfg(l: f64, h: f64) -> SolverConfig {
             faces,
         },
         substrate_z: None,
-        accuracy: Accuracy::default(),
+        accuracy: Accuracy {
+            total_rel_tol: 0.005,
+            ..Accuracy::default()
+        },
         walk: WalkOptions::default(),
         seed: 9,
         ground_nets: Vec::new(),

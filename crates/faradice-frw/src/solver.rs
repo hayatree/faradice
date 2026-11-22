@@ -59,10 +59,12 @@ pub struct Accuracy {
     pub batch_walks: u32,
 }
 
+/// The `default` accuracy preset of the run configuration: 1 % on totals and
+/// 5 % on couplings, at 3σ.
 impl Default for Accuracy {
     fn default() -> Self {
         Self {
-            total_rel_tol: 0.005,
+            total_rel_tol: 0.01,
             coupling_rel_tol: 0.05,
             track_rel: 0.05,
             track_abs_ff: f64::INFINITY,

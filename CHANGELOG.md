@@ -12,6 +12,8 @@ minor versions may change file formats and interfaces.
 - `faradice check` applies the structure's `substrate_z`, as `solve` does (#9).
 - An unknown entry in `output.formats` is rejected when the configuration is loaded, not
   after the solve (#11).
+- `Accuracy::default()` (library) now matches the `default` preset of the run configuration:
+  1 % on totals instead of 0.5 % (#16).
 
 ## [0.1.0] - 2026-11-22
 

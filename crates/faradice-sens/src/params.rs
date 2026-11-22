@@ -729,7 +729,10 @@ mod tests {
             layers: Vec::new(),
             boundary: Boundary::Open,
             substrate_z: Some(0.0),
-            accuracy: Accuracy::default(),
+            accuracy: Accuracy {
+                total_rel_tol: 0.005,
+                ..Accuracy::default()
+            },
             walk: WalkOptions::default(),
             seed: 1,
             ground_nets: Vec::new(),
