@@ -58,3 +58,35 @@ fn check_uses_the_structure_substrate_height() {
     let boundary = out.lines().find(|l| l.starts_with("boundary:")).unwrap();
     assert!(boundary.contains(", 0.3], max:"), "{boundary}");
 }
+
+/// `map` refuses dielectric boxes up front, with its own message (#18).
+#[test]
+fn map_refuses_dielectric_boxes_up_front() {
+    let dir = scratch("map_dielectric_boxes");
+    let case = std::fs::read_to_string(root().join("examples/three_wires.faradice.toml"))
+        .unwrap()
+        .replacen(
+            "[[conductor]]",
+            "[[dielectric.box]]\nmin = [-1.0, -1.0, 0.0]\nmax = [11.0, 2.0, 0.9]\neps_r = 7.0\n\n\
+             [[conductor]]",
+            1,
+        );
+    let structure = dir.join("s.faradice.toml");
+    std::fs::write(&structure, case).unwrap();
+    let out = faradice(&[
+        Path::new("map"),
+        &structure,
+        Path::new("--nets"),
+        Path::new("left,right"),
+        Path::new("--grid"),
+        Path::new("0:10:3,0.35,1.5"),
+        Path::new("-o"),
+        &dir.join("map.csv"),
+    ]);
+    assert!(!out.status.success());
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.contains("insertion maps need a uniform dielectric"),
+        "{err}"
+    );
+}

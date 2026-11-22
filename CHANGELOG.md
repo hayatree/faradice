@@ -9,12 +9,14 @@ minor versions may change file formats and interfaces.
 
 ### Fixed
 
-- Technology files reject a background `eps_r` below 1, as structure files do (#17).
 - `faradice check` applies the structure's `substrate_z`, as `solve` does (#9).
 - An unknown entry in `output.formats` is rejected when the configuration is loaded, not
   after the solve (#11).
 - `Accuracy::default()` (library) now matches the `default` preset of the run configuration:
   1 % on totals instead of 0.5 % (#16).
+- Technology files reject a background `eps_r` below 1, as structure files do (#17).
+- `faradice map` refuses dielectric boxes and conformal shells before any solver setup, with
+  a message that names the requirement (#18).
 
 ## [0.1.0] - 2026-11-22
 

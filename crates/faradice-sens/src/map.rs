@@ -112,9 +112,13 @@ pub struct MapRow {
 /// configuration or solver errors.
 pub fn insertion_map(project: &Project, req: &MapRequest) -> Result<(Vec<MapRow>, [NetId; 2])> {
     let p = faradice_engine::prepare(project, &req.run)?;
-    if !p.solver.layers.is_empty() {
+    // Checked here, before any solver setup, with the whole requirement in
+    // one message (the solver only knows about potential gradients).
+    if !(p.solver.layers.is_empty() && p.solver.regions.is_empty()) {
         return Err(SensError::Param(
-            "insertion maps need a homogeneous dielectric for now".into(),
+            "insertion maps need a uniform dielectric for now (no stratified stack, \
+             dielectric boxes or conformal shells)"
+                .into(),
         ));
     }
     let g = &p.geometry;
