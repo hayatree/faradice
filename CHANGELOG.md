@@ -20,20 +20,20 @@ minor versions may change file formats and interfaces.
 ### Fixed
 
 - `faradice check` applies the structure's `substrate_z`, as `solve` does (#9).
+- `faradice check` runs every check `solve` runs before walking (including `[walk]` and
+  `[accuracy]` values), accepts GDSII input with `--tech` / `--top`, and prints the domain
+  readably instead of in Rust debug format (#10).
 - An unknown entry in `output.formats` is rejected when the configuration is loaded, not
   after the solve (#11).
+- `faradice report` names the SPEF after the design instead of always `design.spef`;
+  `result.json` now stores the design name (#12).
+- The automatic domain margin follows the conductors' height above the substrate plane
+  (or their vertical extent without one) instead of their absolute `z_max` (#15).
 - `Accuracy::default()` (library) now matches the `default` preset of the run configuration:
   1 % on totals instead of 0.5 % (#16).
 - Technology files reject a background `eps_r` below 1, as structure files do (#17).
 - `faradice map` refuses dielectric boxes and conformal shells before any solver setup, with
   a message that names the requirement (#18).
-- `faradice report` names the SPEF after the design instead of always `design.spef`;
-  `result.json` now stores the design name (#12).
-- The automatic domain margin follows the conductors' height above the substrate plane
-  (or their vertical extent without one) instead of their absolute `z_max` (#15).
-- `faradice check` runs every check `solve` runs before walking (including `[walk]` and
-  `[accuracy]` values), accepts GDSII input with `--tech` / `--top`, and prints the domain
-  readably instead of in Rust debug format (#10).
 
 ## [0.1.0] - 2026-11-22
 
