@@ -163,6 +163,24 @@ it fails and 760 ns when it fits) cost about what the saved steps do (≈ 4.2 vs
 and the narrower one saves too little. They wait for step 5, which makes such queries cheap.
 Neither variant is included in the repository; their statistics were not validated.
 
+*Re-measured on the current walk*, by user-space instruction counts (C5, default accuracy, 16
+threads; repeatable within 0.003 %, unlike the timings above), with the cheap bounds of the wide
+box (domain, stack planes) tested before its conductor and face queries:
+
+| | steps per walk | instructions per walk |
+|---|---|---|
+| neither | 48.06 | — |
+| narrow (box across `Q` where no interface in `Q`'s plane meets it) | 47.08 (−2.0 %) | +0.9 % |
+| wide (box bounded by what reaches beyond `P`) | 46.52 (−3.2 %) | +1.7 % |
+| both | 46.27 (−3.7 %) | +1.3 % |
+
+Of 13.1 M wide attempts, 38 % fail on a conductor that reaches beyond `P`, 24 % on a stack plane
+or the box height, 2 % do not beat the ordinary room, and 36 % land; they rebuild their separate
+local lists 4.4 M times. The narrow test runs 17.9 M times and clears 12 %. Even with free
+queries both together would save 3.7 % of the steps, about 3 % of the walking CPU, so making
+the queries cheaper (step 5 was the candidate, and the carried clearance bound below changes
+no landing query) cannot make either variant worth its validation. Closed as not adopted.
+
 **Fixed part, measured per build** (one walker thread, so builds do not overlap; process CPU):
 
 | | CPU-s | wall per build, alone |
