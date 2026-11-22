@@ -90,3 +90,35 @@ fn map_refuses_dielectric_boxes_up_front() {
         "{err}"
     );
 }
+/// `report` names the SPEF after the design stored in `result.json` (#12).
+#[test]
+fn report_keeps_the_design_name() {
+    let dir = scratch("report_design_name");
+    let config = dir.join("c.toml");
+    std::fs::write(
+        &config,
+        "schema_version = 1\n[accuracy]\nmin_walks = 2000\nmax_walks = 2000\n\
+         [output]\nformats = [\"spef\"]\n",
+    )
+    .unwrap();
+    let solved = dir.join("solved");
+    let out = faradice(&[
+        Path::new("solve"),
+        &root().join("examples/three_wires.faradice.toml"),
+        Path::new("-c"),
+        &config,
+        Path::new("-o"),
+        &solved,
+    ]);
+    stdout(&out);
+    assert!(solved.join("three_wires.spef").exists());
+    let reported = dir.join("reported");
+    stdout(&faradice(&[
+        Path::new("report"),
+        &solved.join("result.json"),
+        Path::new("-o"),
+        &reported,
+    ]));
+    assert!(reported.join("three_wires.spef").exists());
+    assert!(!reported.join("design.spef").exists());
+}

@@ -641,7 +641,9 @@ fn main() -> Result<()> {
                     .map_or_else(|| PathBuf::from("."), Path::to_path_buf)
             });
             std::fs::create_dir_all(&dir)?;
-            faradice_engine::write_reports(&report, &cfg, &dir, "design")?;
+            // Result files of 0.1.0 do not store the design name.
+            let design = r.design.as_deref().unwrap_or("design");
+            faradice_engine::write_reports(&report, &cfg, &dir, design)?;
             print_summary(&report);
             if json {
                 println!("{}", serde_json::to_string_pretty(&report)?);

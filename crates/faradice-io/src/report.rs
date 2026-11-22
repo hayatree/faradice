@@ -481,6 +481,7 @@ mod tests {
             ],
             warnings: vec![],
             config_toml: String::new(),
+            design: None,
             completeness: Completeness::Complete,
         }
     }
