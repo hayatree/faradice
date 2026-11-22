@@ -1,17 +1,19 @@
 # Comparison with external field solvers
 
 Accuracy cross-checks of faradice against two independent open-source field
-solvers, each run in its own Docker image so nothing is installed on the host:
+solvers, plus one other floating-random-walk solver, each run in its own Docker
+image so nothing is installed on the host:
 
 | Image | Solver | Method | License | Problem it solves here |
 |---|---|---|---|---|
 | `faradice-bench/fastercap` | [FasterCap](https://github.com/ediloren/FasterCap) 6.0.7 | BEM (Galerkin, `-g`) | LGPL-2.1 | **plane**: open space above an infinite grounded substrate plane |
 | `faradice-bench/palace` | [Palace](https://github.com/awslabs/palace) v0.19.0 + [Gmsh](https://gmsh.info) 4.13.1 | FEM with adaptive mesh refinement | Apache-2.0 (Gmsh: GPL) | **box**: grounded box around the conductors (faradice's default domain) |
+| `faradice-bench/rwcap` | [RWCap v4](https://numbda.cs.tsinghua.edu.cn/download/RWCap_v4_en.html) (2023 binary package, SHA-256 pinned) | Floating random walk | None stated (free binary download) | **box**, as for Palace |
 
 The tools are used only as separate processes for benchmarking. They are not
 dependencies of faradice: nothing is linked, vendored or shipped, and their
-sources are downloaded (pinned) only when an image is built. Only their
-documented input/output formats are used.
+sources (for RWCap, its binary package) are downloaded (pinned) only when an
+image is built. Only their documented input/output formats are used.
 
 ## Running
 
@@ -30,6 +32,7 @@ if you start with those:
 ```sh
 docker build -t faradice-bench/fastercap bench/compare/docker/fastercap
 docker build -t faradice-bench/palace bench/compare/docker/palace
+docker build -t faradice-bench/rwcap bench/compare/docker/rwcap
 ```
 
 Then:
@@ -40,7 +43,11 @@ bench/compare/compare.py bench/compare/cases/v4_three_wires.faradice.toml \
     --solvers palace --out /tmp/compare          # one case, one solver
 bench/compare/scaling.py --bits 4,8,16,32,64 --out /tmp/scaling   # bus scaling study
 bench/compare/compare.py CASE --solvers palace --out /tmp/compare --reuse   # rerun the reference only
+bench/compare/compare.py CASE --solvers rwcap --confidence-sigma 1 --out /tmp/rwcap  # vs RWCap, same σ targets
 ```
+
+`run_all.sh` runs FasterCap and Palace by default; pass `--solvers fastercap,palace,rwcap`
+to include RWCap (`run_all.sh` builds its image like the others).
 
 Each case writes `OUT/<case>/summary.md` and `summary.json`, plus
 the inputs and logs of every solver.
@@ -58,6 +65,14 @@ the inputs and logs of every solver.
   substrate, all faces grounded) with the conductors cut out. Palace refines
   the mesh adaptively; the table also shows the error against a geometric
   extrapolation of the last three AMR meshes.
+- **box** (RWCap): the same box, written as a `.cap3d` case with the box as an
+  explicit grounded conductor (six plates just outside the domain). A window
+  marked `dirichlet` absorbed no charge in RWCap v4 (every row summed to zero),
+  so it is not used. The stack and the dielectric boxes become disjoint medium
+  blocks filling the window. RWCap extracts one master net per run, so a case
+  with n nets takes n runs. Its `-p` and `-c` stop at a relative error that
+  behaved like one standard error in our runs, so `--confidence-sigma 1` gives
+  faradice the same targets (`reference` preset: 0.1 % total, 1 % couplings).
 
 faradice uses the `reference` preset (0.1 % total, 1 % coupling at 3σ),
 `coupling.symmetrize = "none"` (raw rows) and seed 1. "Major couplings" are
@@ -88,5 +103,7 @@ walk and any aborted walks.
 
 Results are recorded in [`docs/validation/M1.md`](../../docs/validation/M1.md) and
 [`docs/validation/M2.md`](../../docs/validation/M2.md).
-Wall times are reported for information only: the solvers run at different
-accuracy targets, so they are not a speed benchmark.
+Wall times against FasterCap and Palace are reported for information only: the
+solvers run at different accuracy targets, so they are not a speed benchmark.
+Against RWCap they are, with `--confidence-sigma 1`; see
+[`docs/validation/external.md`](../../docs/validation/external.md).

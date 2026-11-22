@@ -9,6 +9,10 @@ minor versions may change file formats and interfaces.
 
 ### Added
 
+- RWCap v4 as a third reference solver in `bench/compare` (`--solvers rwcap`,
+  `--confidence-sigma 1` for matched targets), with the results in
+  `docs/validation/external.md`: at the same σ, faradice is 4–16 times faster on the seven
+  comparison cases, and RWCap is off by about 0.5 % with thin or conformal dielectrics (#7).
 - `solve`, `sens`, `map` and `check` take the GDSII tracing options of `gds`
   (`--join-same-name`, `--label-depth`), so their nets match what `gds export` writes (#13).
 
