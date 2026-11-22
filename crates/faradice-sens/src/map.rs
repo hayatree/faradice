@@ -13,7 +13,7 @@ use crate::{Result, SensError};
 /// A regular grid: `lo..=hi` with `n` points per axis (`n = 1` uses `lo`).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Grid {
-    /// `(lo, hi, n)` per axis (µm).
+    /// `(lo, hi, n)` per axis (input units).
     pub axes: [(f64, f64, usize); 3],
 }
 
@@ -52,6 +52,14 @@ impl Grid {
         Ok(Self { axes })
     }
 
+    /// The grid with every coordinate multiplied by `k`.
+    #[must_use]
+    pub fn scaled(self, k: f64) -> Self {
+        Self {
+            axes: self.axes.map(|(lo, hi, n)| (lo * k, hi * k, n)),
+        }
+    }
+
     /// The points, x fastest.
     #[must_use]
     pub fn points(&self) -> Vec<[f64; 3]> {
@@ -88,7 +96,8 @@ pub struct MapRequest {
     pub grid: Grid,
     /// Samples per point.
     pub samples: u64,
-    /// Radius (µm) of the sphere-equivalent object for the predictions.
+    /// Radius (input units) of the sphere-equivalent object for the
+    /// predictions.
     pub radius: f64,
 }
 
@@ -132,7 +141,10 @@ pub fn insertion_map(project: &Project, req: &MapRequest) -> Result<(Vec<MapRow>
         targets.push(j);
     }
     let pool = faradice_engine::thread_pool(&p.config)?;
-    let pts = req.grid.points();
+    // The grid and the radius are in the input's unit; rows are in µm.
+    let k = project.length_unit()?.to_um_factor();
+    let radius = req.radius * k;
+    let pts = req.grid.scaled(k).points();
     let map = pool.install(|| {
         potential_map(
             g,
@@ -158,12 +170,12 @@ pub fn insertion_map(project: &Project, req: &MapRequest) -> Result<(Vec<MapRow>
                 grounded: if inside {
                     f64::NAN
                 } else {
-                    four_pi * eps * req.radius * ff
+                    four_pi * eps * radius * ff
                 },
                 floating: if inside {
                     f64::NAN
                 } else {
-                    four_pi * eps * req.radius.powi(3) * dot
+                    four_pi * eps * radius.powi(3) * dot
                 },
                 p: pp,
             }

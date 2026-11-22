@@ -268,6 +268,12 @@ pub fn run_sensitivity(project: &Project, req: &SensRequest) -> Result<SensOutpu
             "sensitivities run on the CPU engine only".into(),
         ));
     }
+    // Every length of the parameter file is in the input's unit.
+    let converted = SensRequest {
+        params: req.params.in_um(project.length_unit()?),
+        ..req.clone()
+    };
+    let req = &converted;
     let method = match (req.method, &req.params.method) {
         (Some(m), _) => m,
         (None, Some(m)) => m.parse().map_err(SensError::Param)?,

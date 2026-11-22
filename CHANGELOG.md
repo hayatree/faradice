@@ -16,6 +16,11 @@ minor versions may change file formats and interfaces.
 
 - Unlabelled GDSII components (`$0`, `$1`, …) are no longer targets by default: target
   globs match them only when they start with `$`. They remain conductors (#8).
+- Lengths follow one rule: everything that describes the input geometry is in the input's
+  units. The structure file's `substrate_z`, the sensitivity file (`at`, `delta`, `sigma`,
+  `[[add]]` boxes) and `map --grid` / `--radius` were always µm; they now use the
+  structure file's `units` (µm for GDSII input, so GDSII runs are unchanged). Files with
+  `units = "um"` are unaffected. The default `--radius` stays 0.05 µm (#14).
 
 ### Fixed
 

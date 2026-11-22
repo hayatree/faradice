@@ -119,7 +119,7 @@ pub struct ParamSpec {
     /// Shorthand for a rigid translation of a net along an axis.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub translate: Option<Translate>,
-    /// 1σ process variation of the parameter (µm), for `σ_C`.
+    /// 1σ process variation of the parameter (input units), for `σ_C`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sigma: Option<f64>,
 }
@@ -134,7 +134,7 @@ pub struct FaceSpec {
     /// or `at`.
     #[serde(rename = "box", default, skip_serializing_if = "Option::is_none")]
     pub box_index: Option<usize>,
-    /// A point on the face (µm): selects the net's box whose `face` contains
+    /// A point on the face (input units): selects the net's box whose `face` contains
     /// it (for GDS inputs, where box indices are opaque). Give this or `box`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub at: Option<[f64; 3]>,
@@ -143,7 +143,7 @@ pub struct FaceSpec {
     /// Weight (default 1).
     #[serde(default = "one")]
     pub weight: f64,
-    /// Explicit step `δ` in µm (default: from `delta_rel`).
+    /// Explicit step `δ` in input units (default: from `delta_rel`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delta: Option<f64>,
 }
@@ -187,6 +187,27 @@ impl ParamFile {
         let text = std::fs::read_to_string(path)
             .map_err(|e| SensError::Param(format!("reading {}: {e}", path.display())))?;
         Self::parse(&text, &path.display().to_string())
+    }
+
+    /// The file with every length converted from `unit` to µm (`at`,
+    /// `delta`, `sigma` and the added boxes).
+    #[must_use]
+    pub fn in_um(&self, unit: faradice_core::LengthUnit) -> Self {
+        let k = unit.to_um_factor();
+        let mut f = self.clone();
+        for p in &mut f.params {
+            p.sigma = p.sigma.map(|v| v * k);
+            for face in &mut p.faces {
+                face.at = face.at.map(|a| a.map(|v| v * k));
+                face.delta = face.delta.map(|v| v * k);
+            }
+        }
+        for a in &mut f.adds {
+            for b in &mut a.boxes {
+                *b = b.map(|v| v * k);
+            }
+        }
+        f
     }
 
     fn validate(&self) -> std::result::Result<(), String> {
