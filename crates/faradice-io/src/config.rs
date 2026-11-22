@@ -452,6 +452,31 @@ pub struct OutputConfig {
     pub cross_moments: bool,
 }
 
+/// The report formats `output.formats` accepts.
+pub const OUTPUT_FORMATS: [&str; 3] = ["json", "csv", "spef"];
+
+impl OutputConfig {
+    /// Checks that every entry of `formats` is known, so a typo fails before
+    /// the solve rather than when the outputs are written.
+    ///
+    /// # Errors
+    ///
+    /// [`IoError::Invalid`] naming the first unknown format.
+    pub fn validate(&self) -> Result<()> {
+        match self
+            .formats
+            .iter()
+            .find(|f| !OUTPUT_FORMATS.contains(&f.as_str()))
+        {
+            Some(f) => Err(IoError::Invalid(format!(
+                "unknown output format `{f}` in output.formats (expected one of: {})",
+                OUTPUT_FORMATS.join(", ")
+            ))),
+            None => Ok(()),
+        }
+    }
+}
+
 impl Default for OutputConfig {
     fn default() -> Self {
         Self {
@@ -497,6 +522,7 @@ impl Config {
                 )));
             }
         }
+        c.output.validate()?;
         Ok(c)
     }
 
@@ -558,6 +584,8 @@ impl Config {
         layers: &[DielectricLayer],
         regions: &DielectricRegions,
     ) -> Result<Resolved> {
+        // Also here for configurations built in code rather than parsed.
+        self.output.validate()?;
         let mut warnings = Vec::new();
         for r in regions.conformal.iter().filter(|r| r.boxes.is_empty()) {
             warnings.push(format!(
@@ -690,6 +718,24 @@ mod tests {
     fn unknown_keys_are_rejected() {
         assert!(Config::parse("[ground]\nsubstrat = \"plane\"\n", "t").is_err());
         assert!(Config::parse("[ground]\nignore = \"physics\"\n", "t").is_ok());
+    }
+
+    #[test]
+    fn unknown_output_formats_are_rejected_when_parsing() {
+        let e = Config::parse("[output]\nformats = [\"json\", \"xml\"]\n", "t").unwrap_err();
+        assert!(e.to_string().contains("`xml`"), "{e}");
+        assert!(Config::parse("[output]\nformats = [\"spef\", \"csv\"]\n", "t").is_ok());
+        let mut c = Config::default();
+        c.output.formats.push("xml".into());
+        let mut b = faradice_geom::GeometryBuilder::new();
+        let n = b.net("a").unwrap();
+        b.add_box(n, Aabb::from_array([0.0, 0.0, 1.0, 1.0, 1.0, 2.0]).unwrap())
+            .unwrap();
+        let g = b.build().unwrap();
+        assert!(
+            c.resolve(&g, 1.0, &[], &DielectricRegions::default())
+                .is_err()
+        );
     }
 
     #[test]

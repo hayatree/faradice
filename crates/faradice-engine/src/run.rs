@@ -297,7 +297,8 @@ pub fn write_reports(report: &Report, cfg: &Config, dir: &Path, design: &str) ->
             "spef" => w(format!("{design}.spef"), report.to_spef(design))?,
             other => {
                 return Err(EngineError::Other(format!(
-                    "unknown output format `{other}` (json, csv, spef)"
+                    "unknown output format `{other}` ({})",
+                    faradice_io::config::OUTPUT_FORMATS.join(", ")
                 )));
             }
         }

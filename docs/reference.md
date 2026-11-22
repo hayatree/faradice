@@ -258,8 +258,8 @@ boundary: Box { bounds: Aabb { min: [-8.48, -10.48, 0.0], max: [18.48, 11.18, 10
 ```
 
 Limits of `check`: it accepts structure files only (export a GDSII file first), and it
-does not run the solver's checks of `[accuracy]` and `[walk]` values or of
-`output.formats`. These are reported by `solve`.
+does not run the solver's checks of `[accuracy]` and `[walk]` values. These are reported
+by `solve`.
 
 ## 3. Structure file (`*.faradice.toml`)
 
@@ -558,7 +558,7 @@ Background: [`M2_multi_dielectric.md`](design/M2_multi_dielectric.md) (stacks),
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `formats` | array of `"json"`, `"csv"`, `"spef"` | `["json", "csv", "spef"]` | Reports written next to `result.json`. An unknown format is an error, reported only after solving (`result.json` is still written). |
+| `formats` | array of `"json"`, `"csv"`, `"spef"` | `["json", "csv", "spef"]` | Reports written next to `result.json`. An unknown format is an error when the configuration is loaded. |
 | `cross_moments` | bool | `false` | Store per-target sink cross moments in `result.json`, needed for exact σ in `faradice whatif`. CPU engine only; ignored by `sens`. |
 
 ## 5. Technology file (`*.tech.toml`)

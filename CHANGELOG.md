@@ -10,6 +10,8 @@ minor versions may change file formats and interfaces.
 ### Fixed
 
 - `faradice check` applies the structure's `substrate_z`, as `solve` does (#9).
+- An unknown entry in `output.formats` is rejected when the configuration is loaded, not
+  after the solve (#11).
 
 ## [0.1.0] - 2026-11-22
 
