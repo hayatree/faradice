@@ -257,10 +257,9 @@ ground nets:
 boundary: Box { bounds: Aabb { min: [-8.48, -10.48, 0.0], max: [18.48, 11.18, 10.600000000000001] }, faces: [Ground, Ground, Ground, Ground, Ground, Ground] }
 ```
 
-Limits of `check`: it accepts structure files only (export a GDSII file first); it does
-not apply the structure file's `substrate_z` (so the printed domain bottom can differ from
-the one `solve` uses); and it does not run the solver's checks of `[accuracy]` and
-`[walk]` values or of `output.formats`. These are reported by `solve`.
+Limits of `check`: it accepts structure files only (export a GDSII file first), and it
+does not run the solver's checks of `[accuracy]` and `[walk]` values or of
+`output.formats`. These are reported by `solve`.
 
 ## 3. Structure file (`*.faradice.toml`)
 
