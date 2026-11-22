@@ -739,6 +739,11 @@ mod tests {
     }
 
     #[test]
+    fn default_config_and_solver_defaults_agree() {
+        assert_eq!(Config::default().accuracy(), Accuracy::default());
+    }
+
+    #[test]
     fn ground_and_power_treatments_are_independent() {
         let c = Config::parse("[ground]\nnets_treatment = \"net\"\n", "t").unwrap();
         assert!(!c.is_ground_net("VSS"));

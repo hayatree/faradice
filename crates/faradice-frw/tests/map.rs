@@ -35,7 +35,10 @@ fn plates(l: f64, d: f64, extra: &[(&str, [f64; 6])]) -> (Geometry, SolverConfig
         layers: Vec::new(),
         boundary: Boundary::Box { bounds, faces },
         substrate_z: None,
-        accuracy: Accuracy::default(),
+        accuracy: Accuracy {
+            total_rel_tol: 0.005,
+            ..Accuracy::default()
+        },
         walk: WalkOptions {
             stop_dist: Some(1e-4),
             ..WalkOptions::default()

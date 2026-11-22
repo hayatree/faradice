@@ -214,6 +214,7 @@ fn nominal_is_bit_identical_to_solve() {
     let bounds = Aabb::from_array([-3.0, -3.0, 0.0, 8.0, 4.0, 4.0]).unwrap();
     let mut c = cfg(Boundary::grounded_box(bounds), Some(0.0), 0);
     c.accuracy = Accuracy {
+        total_rel_tol: 0.005,
         min_walks: 20_000,
         ..Accuracy::default()
     };
