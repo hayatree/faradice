@@ -71,6 +71,8 @@ pub struct RunOutput {
 /// own entry point (e.g. sensitivities) use it with [`finish`].
 #[derive(Debug, Clone)]
 pub struct Prepared {
+    /// Design name of the project (stored in `result.json`).
+    pub design: String,
     /// The configuration actually used (substrate height applied).
     pub config: Config,
     /// The geometry to solve.
@@ -98,6 +100,7 @@ pub fn prepare(project: &Project, req: &RunRequest) -> Result<Prepared> {
     let mut warnings = project.diagnostics.clone();
     warnings.extend(resolved.warnings);
     Ok(Prepared {
+        design: project.design.clone(),
         config,
         geometry: Arc::new(st.geometry),
         targets: resolved.targets,
@@ -184,7 +187,7 @@ pub fn finish(
     if sol.cancelled {
         warnings.push("run cancelled: results are partial and not converged".into());
     }
-    let result = ResultFile::from_solution(
+    let mut result = ResultFile::from_solution(
         g,
         sol,
         p.config.run.seed,
@@ -193,6 +196,7 @@ pub fn finish(
         warnings,
         config_toml(&p.config)?,
     );
+    result.design = Some(p.design.clone());
     let report = build_report(&result, &p.config.coupling, p.ground_report);
     let targets = sol
         .nets

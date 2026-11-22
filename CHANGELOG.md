@@ -17,6 +17,8 @@ minor versions may change file formats and interfaces.
 - Technology files reject a background `eps_r` below 1, as structure files do (#17).
 - `faradice map` refuses dielectric boxes and conformal shells before any solver setup, with
   a message that names the requirement (#18).
+- `faradice report` names the SPEF after the design instead of always `design.spef`;
+  `result.json` now stores the design name (#12).
 
 ## [0.1.0] - 2026-11-22
 

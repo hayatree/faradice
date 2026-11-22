@@ -114,6 +114,10 @@ pub struct ResultFile {
     pub warnings: Vec<String>,
     /// The configuration used (as TOML text).
     pub config_toml: String,
+    /// Design name (the input's file stem), used to name the SPEF file that
+    /// `faradice report` regenerates. Absent in files of older versions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub design: Option<String>,
     /// Completeness; omitted from the file when complete.
     #[serde(default, skip_serializing_if = "Completeness::is_complete")]
     pub completeness: Completeness,
@@ -195,6 +199,7 @@ impl ResultFile {
             targets,
             warnings,
             config_toml,
+            design: None,
             completeness: if sol.cancelled {
                 Completeness::Cancelled
             } else {

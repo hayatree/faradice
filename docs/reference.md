@@ -203,8 +203,8 @@ printf '[coupling]\nmode = "ground"\n' > ctg.toml
 faradice report out/result.json -c ctg.toml -o out_ctg
 ```
 
-The SPEF written by `report` is named `design.spef` (the original design name is not
-stored in the result).
+The SPEF written by `report` is named after the design stored in the result
+(`design.spef` for results written by 0.1.0, which do not store it).
 
 ### `faradice gds trace` and `faradice gds export`
 
@@ -772,15 +772,15 @@ appears in the sections of both nets, and each `*D_NET` total is the sum of its 
 There is no `*CONN` section and no resistance, because the inputs carry no pin
 information; the file is suitable for inspection and back-annotation by net, not for
 static timing analysis. `<design>` is the input file name without `.faradice.toml` or
-`.gds` (`design` when written by `faradice report`).
+`.gds`; `faradice report` takes it from `result.json`.
 
 ### Raw result (`result.json`)
 
 Per target: walks, aborted walks, convergence flag, and for every sink (other nets,
 `<substrate>`, `<boundary:FACE>`, `<infinity>`, and the ground sum `<GND>`) the sums `Σw`
 and `Σw²` of the walk weights, from which values and σ follow. It also stores the seed,
-stopping distance, elapsed time, all net names, the ground nets, warnings and the
-configuration used (`config_toml`). With `output.cross_moments` it also stores sink cross
+stopping distance, elapsed time, all net names, the ground nets, warnings, the design
+name (`design`) and the configuration used (`config_toml`). With `output.cross_moments` it also stores sink cross
 moments. `faradice report` and `faradice whatif` read it.
 
 ### `sens.json`
