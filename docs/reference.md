@@ -446,7 +446,7 @@ as ground and are not targets.
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `kind` | `"box"`, `"open"` | `"box"` | `box`: a finite box around the conductors with the faces of `[ground.boundary]`. `open`: unbounded space with infinity at 0 V (uniform dielectric stacks only). |
-| `margin` | float (µm) | automatic | Distance from the conductors' bounding box to the domain faces in x, y and at the top. Automatic: `max(0.5·max(extent_x, extent_y), 4·z_max, 1)`, where `z_max` is the highest conductor z coordinate. With a substrate plane the domain bottom is the plane; without one it is `margin` below the lowest conductor. |
+| `margin` | float (µm) | automatic | Distance from the conductors' bounding box to the domain faces in x, y and at the top. Automatic: `max(0.5·max(extent_x, extent_y), 4·h, 1)`, where `h` is the height of the highest conductor point above the substrate plane (without a plane: the conductors' vertical extent). With a substrate plane the domain bottom is the plane; without one it is `margin` below the lowest conductor. |
 
 A warning is issued when more than 1 % of a net's total capacitance goes to the domain
 boundary; increase `margin` (or make faces reflect) if the boundary is not meant to be

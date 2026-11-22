@@ -628,10 +628,14 @@ impl Config {
             }
             DomainKind::Box => {
                 let e = b.extent();
+                // The height of the conductors above the substrate plane (or
+                // their vertical extent without one) sets the field's reach,
+                // not the absolute z coordinate.
+                let height = b.max()[2] - substrate_z.unwrap_or(b.min()[2]);
                 let margin = self
                     .domain
                     .margin
-                    .unwrap_or_else(|| (0.5 * e[0].max(e[1])).max(4.0 * b.max()[2]).max(1.0));
+                    .unwrap_or_else(|| (0.5 * e[0].max(e[1])).max(4.0 * height).max(1.0));
                 let zmin = substrate_z.unwrap_or(b.min()[2] - margin);
                 let bounds = Aabb::new(
                     [b.min()[0] - margin, b.min()[1] - margin, zmin],
@@ -741,6 +745,37 @@ mod tests {
     #[test]
     fn default_config_and_solver_defaults_agree() {
         assert_eq!(Config::default().accuracy(), Accuracy::default());
+    }
+
+    #[test]
+    fn automatic_margin_follows_the_height_above_the_substrate() {
+        // A 1 µm cube 2 µm above a substrate plane at z = 99.
+        let mut b = faradice_geom::GeometryBuilder::new();
+        let n = b.net("a").unwrap();
+        b.add_box(
+            n,
+            Aabb::from_array([0.0, 0.0, 100.0, 1.0, 1.0, 101.0]).unwrap(),
+        )
+        .unwrap();
+        let g = b.build().unwrap();
+        let bounds = |c: &Config| match c
+            .resolve(&g, 1.0, &[], &DielectricRegions::default())
+            .unwrap()
+            .solver
+            .boundary
+        {
+            Boundary::Box { bounds, .. } => bounds,
+            other => panic!("{other:?}"),
+        };
+        let mut c = Config::default();
+        c.ground.substrate_z = 99.0;
+        // margin = 4 × (101 − 99), not 4 × 101.
+        let d = bounds(&c);
+        assert_eq!((d.min()[0], d.min()[2], d.max()[2]), (-8.0, 99.0, 109.0));
+        // Without a plane: 4 × the vertical extent, below and above.
+        c.ground.substrate = SubstrateKind::None;
+        let d = bounds(&c);
+        assert_eq!((d.min()[0], d.min()[2], d.max()[2]), (-4.0, 96.0, 105.0));
     }
 
     #[test]
