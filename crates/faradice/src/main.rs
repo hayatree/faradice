@@ -8,7 +8,6 @@ use faradice_engine::{Project, RunRequest, WalkEngineKind};
 use faradice_io::config::{Config, Preset, read_config};
 use faradice_io::report::{Report, build_report};
 use faradice_io::result::ResultFile;
-use faradice_io::structure::read_structure;
 
 #[derive(Parser)]
 #[command(
@@ -781,9 +780,10 @@ fn main() -> Result<()> {
             }
         },
         Command::Check { structure, config } => {
-            let cfg = load_config(config.as_deref())?;
-            let file = read_structure(&structure)?;
-            let st = file.build(|n| !cfg.is_removed(n))?;
+            let mut cfg = load_config(config.as_deref())?;
+            // The same loading as `solve`, so the structure's substrate height
+            // applies to the configuration.
+            let st = Project::load(&structure, None, None)?.build(&mut cfg)?;
             let resolved = cfg.resolve(&st.geometry, st.eps_r, &st.layers, &st.regions)?;
             let g = &st.geometry;
             let b = g.bounds();
