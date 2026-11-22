@@ -68,6 +68,6 @@ pub use medium::Medium;
 pub use regions::{ConformalRule, DielectricBox, DielectricRegions};
 pub use solver::{
     Accuracy, NetResult, Observer, Progress, Solution, SolveError, SolverConfig, StackOptions,
-    WalkOptions, solve, solve_observed, solve_with, solve_with_observed,
+    WalkOptions, solve, solve_observed, solve_with, solve_with_observed, validate,
 };
 pub use stack::{DielectricLayer, Stack, validate_layers};

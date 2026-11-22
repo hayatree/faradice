@@ -55,8 +55,34 @@ fn check_uses_the_structure_substrate_height() {
         Path::new("-c"),
         &config,
     ]));
-    let boundary = out.lines().find(|l| l.starts_with("boundary:")).unwrap();
-    assert!(boundary.contains(", 0.3], max:"), "{boundary}");
+    let domain = out.lines().find(|l| l.starts_with("domain:")).unwrap();
+    assert!(domain.contains("× 0.3.."), "{domain}");
+    assert!(out.contains("substrate: plane at z = 0.3 µm"), "{out}");
+}
+
+/// `check` runs the solver's checks and reads GDSII input (#10).
+#[test]
+fn check_validates_like_solve_and_reads_gds() {
+    let dir = scratch("check_validates");
+    let config = dir.join("c.toml");
+    std::fs::write(&config, "schema_version = 1\n[walk]\ngauss_alpha = 2.0\n").unwrap();
+    let out = faradice(&[
+        Path::new("check"),
+        &root().join("examples/three_wires.faradice.toml"),
+        Path::new("-c"),
+        &config,
+    ]);
+    assert!(!out.status.success());
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("gauss_alpha"), "{err}");
+    let out = stdout(&faradice(&[
+        Path::new("check"),
+        &root().join("examples/bus.gds"),
+        Path::new("--tech"),
+        &root().join("tech/sky130_stack.tech.toml"),
+    ]));
+    assert!(out.contains("conformal rules: met1"), "{out}");
+    assert!(out.contains("domain: box "), "{out}");
 }
 
 /// `map` refuses dielectric boxes up front, with its own message (#18).

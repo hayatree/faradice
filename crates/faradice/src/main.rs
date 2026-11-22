@@ -186,13 +186,21 @@ enum Command {
         #[command(subcommand)]
         cmd: GdsCmd,
     },
-    /// Validate a structure (and configuration) without solving.
+    /// Validate an input (and configuration) without solving
+    ///
+    /// Runs every check `solve` runs before it starts walking.
     Check {
-        /// Structure file.
+        /// Structure file (`*.faradice.toml`) or GDSII file (requires `--tech`).
         structure: PathBuf,
         /// Run configuration.
         #[arg(short, long)]
         config: Option<PathBuf>,
+        /// Technology file, required for GDSII input.
+        #[arg(long)]
+        tech: Option<PathBuf>,
+        /// Top cell for GDSII input.
+        #[arg(long)]
+        top: Option<String>,
     },
 }
 
@@ -299,6 +307,26 @@ fn parse_preset(s: &str) -> Result<Preset> {
 }
 
 /// Prints the summary table and every warning (run and report).
+/// A length for display: at most six decimals, trailing zeros dropped (so
+/// rounding noise like `10.600000000000001` does not show).
+fn num(v: f64) -> String {
+    let s = format!("{v:.6}");
+    let s = s.trim_end_matches('0').trim_end_matches('.');
+    if s == "-0" {
+        "0".to_owned()
+    } else {
+        s.to_owned()
+    }
+}
+
+/// `x0..x1 × y0..y1 × z0..z1`.
+fn extent(min: [f64; 3], max: [f64; 3]) -> String {
+    (0..3)
+        .map(|t| format!("{}..{}", num(min[t]), num(max[t])))
+        .collect::<Vec<_>>()
+        .join(" × ")
+}
+
 fn print_summary(report: &Report) {
     eprintln!(
         "{:<24} {:>14} {:>9} {:>14} {:>8}  top coupling",
@@ -781,13 +809,20 @@ fn main() -> Result<()> {
                 eprintln!("wrote {nets} nets to {}", out.display());
             }
         },
-        Command::Check { structure, config } => {
-            let mut cfg = load_config(config.as_deref())?;
-            // The same loading as `solve`, so the structure's substrate height
-            // applies to the configuration.
-            let st = Project::load(&structure, None, None)?.build(&mut cfg)?;
-            let resolved = cfg.resolve(&st.geometry, st.eps_r, &st.layers, &st.regions)?;
-            let g = &st.geometry;
+        Command::Check {
+            structure,
+            config,
+            tech,
+            top,
+        } => {
+            let project = Project::load(&structure, tech.as_deref(), top.as_deref())?;
+            let req = RunRequest {
+                config: load_config(config.as_deref())?,
+                engine: WalkEngineKind::Cpu,
+            };
+            let p = faradice_engine::check(&project, &req)?;
+            let g = &*p.geometry;
+            let st = &p.solver;
             let b = g.bounds();
             println!(
                 "nets: {}  boxes: {}  eps_r: {}  dielectric layers: {}",
@@ -796,16 +831,16 @@ fn main() -> Result<()> {
                 st.eps_r,
                 st.layers.len()
             );
-            if !st.regions.boxes.is_empty() || !st.regions.conformal.is_empty() {
-                let rules: Vec<String> = st
-                    .regions
+            let regions = &st.regions;
+            if !regions.boxes.is_empty() || !regions.conformal.is_empty() {
+                let rules: Vec<String> = regions
                     .conformal
                     .iter()
                     .map(|r| format!("{} ({} boxes)", r.layer, r.boxes.len()))
                     .collect();
                 println!(
                     "dielectric boxes: {}  conformal rules: {}",
-                    st.regions.boxes.len(),
+                    regions.boxes.len(),
                     if rules.is_empty() {
                         "none".to_owned()
                     } else {
@@ -813,21 +848,43 @@ fn main() -> Result<()> {
                     }
                 );
             }
-            println!("bounds: {:?} .. {:?} µm", b.min(), b.max());
+            println!("conductors: {} µm", extent(b.min(), b.max()));
             let names = |v: &[faradice_core::NetId]| {
+                if v.is_empty() {
+                    return "none".to_owned();
+                }
                 v.iter()
                     .map(|&n| g.net_name(n))
                     .collect::<Vec<_>>()
                     .join(", ")
             };
-            println!(
-                "targets ({}): {}",
-                resolved.targets.len(),
-                names(&resolved.targets)
-            );
-            println!("ground nets: {}", names(&resolved.solver.ground_nets));
-            println!("boundary: {:?}", resolved.solver.boundary);
-            for w in &resolved.warnings {
+            println!("targets ({}): {}", p.targets.len(), names(&p.targets));
+            println!("ground nets: {}", names(&st.ground_nets));
+            match st.substrate_z {
+                Some(z) => println!("substrate: plane at z = {} µm", num(z)),
+                None => println!("substrate: none"),
+            }
+            match &st.boundary {
+                faradice_frw::Boundary::Open => println!("domain: open"),
+                faradice_frw::Boundary::Box { bounds, faces } => {
+                    let kinds: Vec<String> = faradice_core::Face::ALL
+                        .iter()
+                        .map(|f| {
+                            let k = match faces[f.index()] {
+                                faradice_frw::FaceKind::Ground => "ground",
+                                faradice_frw::FaceKind::Reflect => "reflect",
+                            };
+                            format!("{} {k}", f.as_str())
+                        })
+                        .collect();
+                    println!(
+                        "domain: box {} µm; faces: {}",
+                        extent(bounds.min(), bounds.max()),
+                        kinds.join(", ")
+                    );
+                }
+            }
+            for w in &p.warnings {
                 println!("warning: {w}");
             }
         }

@@ -358,11 +358,13 @@ fn median_min_extent(geom: &Geometry) -> f64 {
     *v.select_nth_unstable_by(mid, f64::total_cmp).1
 }
 
-pub(crate) fn validate(
-    geom: &Geometry,
-    targets: &[NetId],
-    cfg: &SolverConfig,
-) -> Result<(), SolveError> {
+/// Checks a solver configuration against `geom` and `targets` without
+/// building tables or walking: the checks every solve runs first.
+///
+/// # Errors
+///
+/// [`SolveError::Config`] describing the first problem found.
+pub fn validate(geom: &Geometry, targets: &[NetId], cfg: &SolverConfig) -> Result<(), SolveError> {
     let bad = |m: &str| Err(SolveError::Config(m.to_owned()));
     if !(cfg.eps_r.is_finite() && cfg.eps_r > 0.0) {
         return bad("eps_r must be positive");

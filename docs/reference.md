@@ -26,7 +26,7 @@ from the repository root after `cargo build --release -p faradice` (the binary i
 | File | Role | Used by |
 |---|---|---|
 | `*.faradice.toml` | **Structure**: conductor boxes per net and the dielectric. | `solve`, `sens`, `map`, `check` |
-| `*.gds` (`.gds2`, `.gdsii`) | **Layout** in GDSII; needs a technology file. | `solve`, `sens`, `map`, `gds` |
+| `*.gds` (`.gds2`, `.gdsii`) | **Layout** in GDSII; needs a technology file. | `solve`, `sens`, `map`, `check`, `gds` |
 | `*.tech.toml` | **Technology**: GDS layer map, layer heights, vias, label layers, dielectric stack, conformal shells. | with GDS input |
 | `faradice.toml` | **Run configuration**: ground model, domain, target nets, accuracy, coupling post-processing, walk tuning, outputs. Optional; every key has a default. | `solve`, `sens`, `map`, `report`, `check` |
 | `*.sens.toml` | **Sensitivity parameters**: face moves, translations, conductor deletions and additions. | `sens` |
@@ -53,7 +53,7 @@ faradice <COMMAND>
   map     Insertion map: potentials and predicted coupling change on a grid (CSV)
   report  Regenerate reports from result.json without re-solving
   gds     GDSII tools: connectivity tracing (trace) and export (export)
-  check   Validate a structure (and configuration) without solving
+  check   Validate an input (and configuration) without solving
 ```
 
 `faradice --version` prints the version; `faradice <command> --help` lists the options.
@@ -242,8 +242,9 @@ labels that touch no shape are reported as warnings.
 
 ### `faradice check`
 
-Parses a structure file and a configuration, resolves the targets, ground nets and domain,
-and prints them without solving.
+Loads an input and a configuration, resolves the targets, ground nets and domain, runs
+every check `solve` runs before it starts walking, and prints the result without solving.
+GDSII input needs `--tech` (and optionally `--top`), as for `solve`.
 
 ```sh
 faradice check examples/three_wires.faradice.toml -c examples/faradice.toml
@@ -251,15 +252,15 @@ faradice check examples/three_wires.faradice.toml -c examples/faradice.toml
 
 ```text
 nets: 4  boxes: 4  eps_r: 3.9  dielectric layers: 0
-bounds: [0.0, -2.0, 1.0] .. [10.0, 2.7, 2.12] µm
+conductors: 0..10 × -2..2.7 × 1..2.12 µm
 targets (4): left, victim, right, cross
-ground nets:
-boundary: Box { bounds: Aabb { min: [-8.48, -10.48, 0.0], max: [18.48, 11.18, 10.600000000000001] }, faces: [Ground, Ground, Ground, Ground, Ground, Ground] }
+ground nets: none
+substrate: plane at z = 0 µm
+domain: open
 ```
 
-Limits of `check`: it accepts structure files only (export a GDSII file first), and it
-does not run the solver's checks of `[accuracy]` and `[walk]` values. These are reported
-by `solve`.
+With a box domain the last line lists its extent and the condition of each face, for
+example `domain: box -8.48..18.48 × -10.48..11.18 × 0..10.6 µm; faces: xmin ground, …`.
 
 ## 3. Structure file (`*.faradice.toml`)
 

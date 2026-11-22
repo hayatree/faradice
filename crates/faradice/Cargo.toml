@@ -19,6 +19,7 @@ path = "src/main.rs"
 faradice-core.workspace = true
 faradice-geom.workspace = true
 faradice-io.workspace = true
+faradice-frw.workspace = true
 faradice-gds.workspace = true
 faradice-engine.workspace = true
 faradice-sens = { workspace = true, optional = true }

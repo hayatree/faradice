@@ -21,6 +21,9 @@ minor versions may change file formats and interfaces.
   `result.json` now stores the design name (#12).
 - The automatic domain margin follows the conductors' height above the substrate plane
   (or their vertical extent without one) instead of their absolute `z_max` (#15).
+- `faradice check` runs every check `solve` runs before walking (including `[walk]` and
+  `[accuracy]` values), accepts GDSII input with `--tech` / `--top`, and prints the domain
+  readably instead of in Rust debug format (#10).
 
 ## [0.1.0] - 2026-11-22
 

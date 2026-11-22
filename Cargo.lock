@@ -385,6 +385,7 @@ dependencies = [
  "clap",
  "faradice-core",
  "faradice-engine",
+ "faradice-frw",
  "faradice-gds",
  "faradice-geom",
  "faradice-io",
