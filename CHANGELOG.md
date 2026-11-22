@@ -9,6 +9,7 @@ minor versions may change file formats and interfaces.
 
 ### Fixed
 
+- Technology files reject a background `eps_r` below 1, as structure files do (#17).
 - `faradice check` applies the structure's `substrate_z`, as `solve` does (#9).
 - An unknown entry in `output.formats` is rejected when the configuration is loaded, not
   after the solve (#11).

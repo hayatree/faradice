@@ -607,7 +607,7 @@ top = "met2"
 |---|---|---|---|
 | `schema_version` | integer | required | Must be `1`. |
 | `name` | string | `""` | Display name. |
-| `eps_r` | float | required | Uniform dielectric, or the medium above the last `[[dielectric]]` entry. |
+| `eps_r` | float ≥ 1 | required | Uniform dielectric, or the medium above the last `[[dielectric]]` entry. |
 | `substrate_z` | float (µm) | `0.0` | Substrate plane height; overrides `ground.substrate_z`. |
 | `[[dielectric]]` | array | empty | Stratified stack, bottom-up: `z_top` (strictly increasing) and `eps_r` (≥ 1), as in the structure file. |
 | `[[layer]]` | array | required | Conductor layers. |

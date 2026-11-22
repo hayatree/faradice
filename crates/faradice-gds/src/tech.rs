@@ -138,6 +138,13 @@ impl Tech {
                 t.schema_version
             )));
         }
+        // As in structure files.
+        if !(t.eps_r.is_finite() && t.eps_r >= 1.0) {
+            return Err(GdsError::Tech(format!(
+                "eps_r must be finite and >= 1 (got {})",
+                t.eps_r
+            )));
+        }
         for l in &t.layers {
             if !(l.thickness > 0.0 && l.zmin.is_finite()) {
                 return Err(GdsError::Tech(format!(
@@ -267,6 +274,14 @@ gds = [68, 20]
 zmin = 1.0
 thickness = 0.5
 "#;
+
+    #[test]
+    fn rejects_a_background_eps_r_below_one() {
+        for bad in ["0.0", "-3.9", "0.5", "nan", "inf"] {
+            let text = BASE.replace("eps_r = 1.0", &format!("eps_r = {bad}"));
+            assert!(Tech::parse(&text).is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn reads_and_validates_a_dielectric_stack() {
