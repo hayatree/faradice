@@ -71,6 +71,8 @@ configuration file.
 | `-c, --config <FILE>` | Run configuration. Without it, all defaults apply. |
 | `--tech <FILE>` | Technology file, required for GDSII input. |
 | `--top <CELL>` | Top cell of a GDSII file (default: the unique top cell). |
+| `--join-same-name` | GDSII input: merge disconnected components that carry the same label (as for `gds`). |
+| `--label-depth <N>` | GDSII input: only use labels up to this hierarchy depth (as for `gds`). |
 | `--threads <N>` | Worker threads, `0` = all cores. Overrides `run.threads`. Results do not depend on it. |
 | `--seed <N>` | Master seed. Overrides `run.seed`. |
 
@@ -244,7 +246,8 @@ labels that touch no shape are reported as warnings.
 
 Loads an input and a configuration, resolves the targets, ground nets and domain, runs
 every check `solve` runs before it starts walking, and prints the result without solving.
-GDSII input needs `--tech` (and optionally `--top`), as for `solve`.
+GDSII input needs `--tech` (and takes `--top`, `--join-same-name` and `--label-depth`), as
+for `solve`.
 
 ```sh
 faradice check examples/three_wires.faradice.toml -c examples/faradice.toml

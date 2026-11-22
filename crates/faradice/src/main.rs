@@ -29,12 +29,8 @@ enum Command {
         /// Run configuration (`faradice.toml`).
         #[arg(short, long)]
         config: Option<PathBuf>,
-        /// Technology file, required for GDSII input.
-        #[arg(long)]
-        tech: Option<PathBuf>,
-        /// Top cell for GDSII input.
-        #[arg(long)]
-        top: Option<String>,
+        #[command(flatten)]
+        layout: LayoutArgs,
         /// Output directory.
         #[arg(short, long, default_value = "faradice_out")]
         out: PathBuf,
@@ -69,12 +65,8 @@ enum Command {
         /// Run configuration (`faradice.toml`).
         #[arg(short, long)]
         config: Option<PathBuf>,
-        /// Technology file, required for GDSII input.
-        #[arg(long)]
-        tech: Option<PathBuf>,
-        /// Top cell for GDSII input.
-        #[arg(long)]
-        top: Option<String>,
+        #[command(flatten)]
+        layout: LayoutArgs,
         /// Output directory.
         #[arg(short, long, default_value = "faradice_out")]
         out: PathBuf,
@@ -144,12 +136,8 @@ enum Command {
         /// Run configuration (`faradice.toml`).
         #[arg(short, long)]
         config: Option<PathBuf>,
-        /// Technology file, required for GDSII input.
-        #[arg(long)]
-        tech: Option<PathBuf>,
-        /// Top cell for GDSII input.
-        #[arg(long)]
-        top: Option<String>,
+        #[command(flatten)]
+        layout: LayoutArgs,
         /// Samples per point.
         #[arg(long, default_value_t = 4000)]
         samples: u64,
@@ -195,13 +183,45 @@ enum Command {
         /// Run configuration.
         #[arg(short, long)]
         config: Option<PathBuf>,
-        /// Technology file, required for GDSII input.
-        #[arg(long)]
-        tech: Option<PathBuf>,
-        /// Top cell for GDSII input.
-        #[arg(long)]
-        top: Option<String>,
+        #[command(flatten)]
+        layout: LayoutArgs,
     },
+}
+
+/// GDSII options of the commands that also take structure files.
+#[derive(clap::Args, Clone)]
+struct LayoutArgs {
+    /// Technology file, required for GDSII input.
+    #[arg(long)]
+    tech: Option<PathBuf>,
+    /// Top cell for GDSII input.
+    #[arg(long)]
+    top: Option<String>,
+    /// GDSII input: merge disconnected components that carry the same label.
+    #[arg(long)]
+    join_same_name: bool,
+    /// GDSII input: only use labels up to this hierarchy depth (0 = top cell
+    /// only).
+    #[arg(long)]
+    label_depth: Option<u32>,
+}
+
+impl LayoutArgs {
+    /// Loads `input` (a structure file, or GDSII with these options).
+    fn load(&self, input: &Path) -> Result<Project> {
+        if !faradice_engine::is_gds(input) && (self.join_same_name || self.label_depth.is_some()) {
+            bail!("--join-same-name and --label-depth apply to GDSII input only");
+        }
+        Ok(Project::load_with(
+            input,
+            self.tech.as_deref(),
+            self.top.as_deref(),
+            faradice_gds::trace::TraceOptions {
+                max_label_depth: self.label_depth,
+                join_same_name: self.join_same_name,
+            },
+        )?)
+    }
 }
 
 #[derive(clap::Args, Clone)]
@@ -476,8 +496,7 @@ fn main() -> Result<()> {
         Command::Solve {
             structure,
             config,
-            tech,
-            top,
+            layout,
             out,
             nets,
             preset,
@@ -487,7 +506,7 @@ fn main() -> Result<()> {
             engine,
         } => {
             let cfg = run_config(config.as_deref(), nets, preset.as_deref(), threads, seed)?;
-            let project = Project::load(&structure, tech.as_deref(), top.as_deref())?;
+            let project = layout.load(&structure)?;
             let engine: WalkEngineKind = engine.parse()?;
             let out_run = faradice_engine::run(
                 &project,
@@ -517,8 +536,7 @@ fn main() -> Result<()> {
             structure,
             params,
             config,
-            tech,
-            top,
+            layout,
             out,
             nets,
             preset,
@@ -538,7 +556,7 @@ fn main() -> Result<()> {
             if one_sided {
                 file.richardson = Some(false);
             }
-            let project = Project::load(&structure, tech.as_deref(), top.as_deref())?;
+            let project = layout.load(&structure)?;
             let res = faradice_sens::run_sensitivity(
                 &project,
                 &faradice_sens::SensRequest {
@@ -601,8 +619,7 @@ fn main() -> Result<()> {
             nets,
             grid,
             config,
-            tech,
-            top,
+            layout,
             samples,
             radius,
             threads,
@@ -617,7 +634,7 @@ fn main() -> Result<()> {
                 bail!("--radius must be positive");
             }
             let cfg = run_config(config.as_deref(), None, None, threads, seed)?;
-            let project = Project::load(&structure, tech.as_deref(), top.as_deref())?;
+            let project = layout.load(&structure)?;
             let req = faradice_sens::map::MapRequest {
                 run: RunRequest {
                     config: cfg,
@@ -812,10 +829,9 @@ fn main() -> Result<()> {
         Command::Check {
             structure,
             config,
-            tech,
-            top,
+            layout,
         } => {
-            let project = Project::load(&structure, tech.as_deref(), top.as_deref())?;
+            let project = layout.load(&structure)?;
             let req = RunRequest {
                 config: load_config(config.as_deref())?,
                 engine: WalkEngineKind::Cpu,

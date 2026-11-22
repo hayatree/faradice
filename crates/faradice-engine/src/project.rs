@@ -52,6 +52,21 @@ impl Project {
     ///
     /// Read, parse, flatten or trace errors.
     pub fn load(path: &Path, tech: Option<&Path>, top: Option<&str>) -> Result<Self> {
+        Self::load_with(path, tech, top, trace::TraceOptions::default())
+    }
+
+    /// [`Project::load`] with explicit trace options for GDSII input
+    /// (ignored for structure files).
+    ///
+    /// # Errors
+    ///
+    /// Read, parse, flatten or trace errors.
+    pub fn load_with(
+        path: &Path,
+        tech: Option<&Path>,
+        top: Option<&str>,
+        opts: trace::TraceOptions,
+    ) -> Result<Self> {
         let design = path
             .file_stem()
             .and_then(|s| s.to_str())
@@ -62,7 +77,7 @@ impl Project {
             let tech = tech.ok_or_else(|| {
                 EngineError::Other("GDSII input requires a technology file".into())
             })?;
-            Self::load_gds(path, tech, top, trace::TraceOptions::default(), design)
+            Self::load_gds(path, tech, top, opts, design)
         } else {
             Self {
                 path: path.to_owned(),
