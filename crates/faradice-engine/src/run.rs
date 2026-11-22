@@ -110,6 +110,19 @@ pub fn prepare(project: &Project, req: &RunRequest) -> Result<Prepared> {
     })
 }
 
+/// [`prepare`] followed by the solver's own configuration checks: everything
+/// a run checks before it starts walking (`faradice check`).
+///
+/// # Errors
+///
+/// As [`prepare`], and [`EngineError::Solve`] for an invalid solver
+/// configuration.
+pub fn check(project: &Project, req: &RunRequest) -> Result<Prepared> {
+    let p = prepare(project, req)?;
+    faradice_frw::validate(&p.geometry, &p.targets, &p.solver)?;
+    Ok(p)
+}
+
 /// Runs one extraction, blocking the calling thread. Progress and
 /// cancellation go through `observer` (use `&()` for none).
 ///

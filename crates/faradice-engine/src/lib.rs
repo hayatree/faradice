@@ -17,7 +17,7 @@ pub use job::{Job, JobEvent, JobState, NetProgress, Partial};
 pub use project::is_gds;
 pub use project::{Project, Source};
 pub use run::{
-    Prepared, RunOutput, RunRequest, WalkEngineKind, config_toml, finish, ground_report_of,
+    Prepared, RunOutput, RunRequest, WalkEngineKind, check, config_toml, finish, ground_report_of,
     prepare, run, thread_pool, write_outputs, write_reports,
 };
 
