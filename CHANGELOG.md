@@ -7,6 +7,10 @@ minor versions may change file formats and interfaces.
 
 ## [Unreleased]
 
+### Fixed
+
+- `faradice check` applies the structure's `substrate_z`, as `solve` does (#9).
+
 ## [0.1.0] - 2026-11-22
 
 First public release.
