@@ -116,6 +116,32 @@ fn map_refuses_dielectric_boxes_up_front() {
         "{err}"
     );
 }
+
+/// The GDSII tracing options of `gds` are accepted by the other commands,
+/// and refused for structure files (#13).
+#[test]
+fn trace_options_apply_to_gds_input_only() {
+    let out = stdout(&faradice(&[
+        Path::new("check"),
+        &root().join("examples/bus.gds"),
+        Path::new("--tech"),
+        &root().join("tech/sky130_stack.tech.toml"),
+        Path::new("--join-same-name"),
+        Path::new("--label-depth"),
+        Path::new("0"),
+    ]));
+    assert!(out.contains("targets (4)"), "{out}");
+    let out = faradice(&[
+        Path::new("check"),
+        &root().join("examples/three_wires.faradice.toml"),
+        Path::new("--label-depth"),
+        Path::new("0"),
+    ]);
+    assert!(!out.status.success());
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("GDSII input only"), "{err}");
+}
+
 /// `report` names the SPEF after the design stored in `result.json` (#12).
 #[test]
 fn report_keeps_the_design_name() {
