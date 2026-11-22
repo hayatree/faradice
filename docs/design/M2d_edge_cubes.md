@@ -142,6 +142,8 @@ The exit probabilities of a cell are the fluxes `−ε ∂G/∂n` through it of 
     against tuples with strong edge singularities (high-contrast checkerboards), where
     second-order convergence fails.
   - Richardson can make cells negative; negative cells also reject the configuration.
+  - Weak contrasts on the default grid skip the finest level: see
+    [M2g §7](M2g_shell_walk_cost.md#7-results) for the two-level tables and their estimate.
   - The default `K = 16`, `M = 32` gives levels 32, 64 and 128. Other `K`, `M` for which
     `lcm(2K, M)` is not a power of two, or whose finest level would exceed 128, disable edge cubes
     (reported).
