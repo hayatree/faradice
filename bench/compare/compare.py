@@ -180,7 +180,7 @@ def faradice_bin():
     return exe
 
 
-def run_faradice(case, setting, work, preset, margin, threads, targets=("*",), reuse=False):
+def run_faradice(case, setting, work, preset, margin, threads, targets=("*",), reuse=False, confidence=None, total_only=False):
     work.mkdir(parents=True, exist_ok=True)
     domain = '[domain]\nkind = "open"\n' if setting == "plane" else f'[domain]\nkind = "box"\nmargin = {margin}\n'
     cfg = work / "faradice.toml"
@@ -191,6 +191,8 @@ def run_faradice(case, setting, work, preset, margin, threads, targets=("*",), r
         + '[power]\nnets = []\n'
         + f"[extract]\nnets = {json.dumps(list(targets))}\n"
         + f'[accuracy]\npreset = "{preset}"\n'
+        + (f"confidence_sigma = {confidence}\n" if confidence else "")
+        + ("coupling_track = { rel = 0.0 }\n" if total_only else "")
         + '[coupling]\nsymmetrize = "none"\n'
         + f"[run]\nseed = 1\nthreads = {threads}\n"
     )
@@ -422,6 +424,147 @@ def run_palace(eps_r, nets, work, margin, ranks, amr_its, max_dofs, order, layer
     }
 
 
+# --------------------------------------------------------------------- RWCap
+
+
+def media_partition(dom, eps_r, layers, regions):
+    """Disjoint dielectric blocks [(box, eps_r)] filling `dom`: the slabs of the
+    stratified stack with the boxes of `regions` (disjoint, from `load_regions`)
+    cut out of them and added as blocks of their own."""
+    zs, eps = layers if layers and layers[0] else ([], [eps_r])
+    inside = [z for z in zs if dom[2] < z < dom[5]]
+    cuts = [dom[2]] + inside + [dom[5]]
+    out = []
+    for z0, z1 in zip(cuts, cuts[1:]):
+        zc = 0.5 * (z0 + z1)
+        e_slab = next((e for z, e in zip(zs, eps) if zc < z), eps[-1])
+        slab = [dom[0], dom[1], z0, dom[3], dom[4], z1]
+        here = []
+        for b, e in regions:
+            c = [max(b[a], slab[a]) for a in range(3)] + [min(b[a + 3], slab[a + 3]) for a in range(3)]
+            if all(c[a] < c[a + 3] for a in range(3)):
+                here.append((c, e))
+        if not here:
+            out.append((slab, e_slab))
+            continue
+        # Coordinate-compressed cells of the slab, labelled by region or slab,
+        # merged greedily into boxes (as in `load_regions`).
+        cs = [sorted({slab[a], slab[a + 3]} | {v for b, _ in here for v in (b[a], b[a + 3])}) for a in range(3)]
+        label = {}
+        for i in range(len(cs[0]) - 1):
+            for j in range(len(cs[1]) - 1):
+                for k in range(len(cs[2]) - 1):
+                    p = [0.5 * (cs[a][m] + cs[a][m + 1]) for a, m in enumerate((i, j, k))]
+                    label[(i, j, k)] = next(
+                        (e for b, e in here if all(b[a] < p[a] < b[a + 3] for a in range(3))), e_slab
+                    )
+        while label:
+            i, j, k = min(label)
+            q = label[(i, j, k)]
+            i1 = i + 1
+            while label.get((i1, j, k)) == q:
+                i1 += 1
+            j1 = j + 1
+            while all(label.get((x, j1, k)) == q for x in range(i, i1)):
+                j1 += 1
+            k1 = k + 1
+            while all(label.get((x, y, k1)) == q for x in range(i, i1) for y in range(j, j1)):
+                k1 += 1
+            for x in range(i, i1):
+                for y in range(j, j1):
+                    for z in range(k, k1):
+                        del label[(x, y, z)]
+            out.append(([cs[0][i], cs[1][j], cs[2][k], cs[0][i1], cs[1][j1], cs[2][k1]], q))
+    return out
+
+
+def cap3d(window, media, nets, master):
+    """A .cap3d case (RWCap's input format): the medium blocks, the conductors
+    (the ground among them) in `window`, extracting the row of `master`."""
+
+    def block(b, pad):
+        return [
+            f"{pad}<block>",
+            f"{pad}    basepoint({b[0]:.12g}, {b[1]:.12g}, {b[2]:.12g})",
+            f"{pad}    v1({b[3] - b[0]:.12g}, 0, 0)",
+            f"{pad}    v2(0, {b[4] - b[1]:.12g}, 0)",
+            f"{pad}    hvector(0, 0, {b[5] - b[2]:.12g})",
+            f"{pad}</block>",
+        ]
+
+    lines = ["<cap3d>"]
+    for k, (b, e) in enumerate(media):
+        lines += ["<medium>", f"    name medium{k}", *block(b, "    "), f"    diel {e:.12g}", "</medium>"]
+    for i, (_, boxes) in enumerate(nets):
+        lines += ["<conductor>", f"    name n{i}"]
+        for b in boxes:
+            lines += block(b, "    ")
+        lines.append("</conductor>")
+    lines += ["<task>", "    <capacitance>", f"        n{master}", "    </capacitance>", "</task>"]
+    lines += [
+        "<window>",
+        f"    v1({window[0]:.12g}, {window[1]:.12g}, {window[2]:.12g})",
+        f"    v2({window[3]:.12g}, {window[4]:.12g}, {window[5]:.12g})",
+        "</window>",
+        "</cap3d>",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def run_rwcap(eps_r, nets, work, margin, threads, self_err, coup_err, layers=None, regions=()):
+    """Grounded box (same as faradice's box domain), one RWCap run per net;
+    returns Maxwell C (fF) by net.
+
+    The box is an explicit grounded conductor: six plates of thickness `t`
+    just outside the domain, inside a slightly larger window. (A window
+    marked `dirichlet` absorbed no charge in RWCap v4: every row summed to
+    zero.)"""
+    work.mkdir(parents=True, exist_ok=True)
+    lo, hi = bbox(nets)
+    dom = [lo[0] - margin, lo[1] - margin, 0.0, hi[0] + margin, hi[1] + margin, hi[2] + margin]
+    t = 0.05 * margin
+    window = [v - t for v in dom[:3]] + [v + t for v in dom[3:]]
+    x0, y0, z0, x1, y1, z1 = window
+    ground = [
+        [x0, y0, z0, x1, y1, dom[2]],
+        [x0, y0, dom[5], x1, y1, z1],
+        [x0, y0, dom[2], dom[0], y1, dom[5]],
+        [dom[3], y0, dom[2], x1, y1, dom[5]],
+        [dom[0], y0, dom[2], dom[3], dom[1], dom[5]],
+        [dom[0], dom[4], dom[2], dom[3], y1, dom[5]],
+    ]
+    media = media_partition(window, eps_r, layers, regions)
+    names = [n for n, _ in nets]
+    with_ground = nets + [("ground", ground)]
+    c, wall, elapsed, walks = {}, 0.0, 0.0, {}
+    for i, ni in enumerate(names):
+        (work / f"n{i}.cap3d").write_text(cap3d(window, media, with_ground, i))
+        args = ["-f", f"/work/n{i}.cap3d", "-p", f"{self_err}", "-n", str(threads)]
+        if coup_err:
+            args += ["-c", f"{coup_err}"]
+        args += ["--out-file", f"/work/n{i}.out", "--log-file", f"/work/n{i}.log"]
+        _, w, _ = docker("faradice-bench/rwcap", work, args, log=f"n{i}.stdout")
+        wall += w
+        text = (work / f"n{i}.out").read_text()
+        row = {m.group(1): float(m.group(2)) * 1e15 for m in re.finditer(r"Capacitance on (\S+) = (\S+) F", text)}
+        if f"n{i}" not in row:
+            raise SolverFailed(f"RWCap wrote no capacitance for {ni}; see {work}")
+        c[ni] = {nj: row.get(f"n{j}", 0.0) for j, nj in enumerate(names)}
+        m = re.search(r"RWCap has run (\d+) walks \(([\d.]+) hops/walk\)", text)
+        if m:
+            walks[ni] = (int(m.group(1)), float(m.group(2)))
+        m = re.search(r"Elapsed time: ([\d.]+)sec", text)
+        elapsed += float(m.group(1)) if m else w
+    return {
+        "matrix": c,
+        "wall_s": wall,
+        "solver_s": elapsed,
+        "walks": walks,
+        "settings": f"-p {self_err}" + (f" -c {coup_err}" if coup_err else "") + f", {threads} threads, margin {margin} um, {len(media)} medium blocks"
+        + f"; {elapsed:.2f} s reported by RWCap, {sum(n for n, _ in walks.values())} walks",
+    }
+
+
 # ------------------------------------------------------------------- compare
 
 
@@ -479,6 +622,14 @@ def main():
     ap.add_argument("--preset", default="reference")
     ap.add_argument("--margin", type=float, default=2.0)
     ap.add_argument("--threads", type=int, default=os.cpu_count())
+    ap.add_argument(
+        "--confidence-sigma", type=float, help="faradice accuracy.confidence_sigma (1 matches RWCap's -p and -c)"
+    )
+    ap.add_argument(
+        "--total-only",
+        action="store_true",
+        help="stop on the total only: faradice tracks no coupling, RWCap runs without -c",
+    )
     ap.add_argument("--reuse", action="store_true", help="reuse a previous faradice run in --out (same settings)")
     ap.add_argument("--fastercap-error", type=float, default=1e-3)
     ap.add_argument("--fastercap-timeout", type=float, default=1800.0, help="seconds")
@@ -486,6 +637,8 @@ def main():
     ap.add_argument("--palace-max-dofs", type=int, default=1_500_000)
     ap.add_argument("--palace-ranks", type=int, default=max(1, (os.cpu_count() or 2) // 2))
     ap.add_argument("--palace-order", type=int, default=2)
+    ap.add_argument("--rwcap-self", type=float, default=1e-3, help="RWCap -p (relative error of the total)")
+    ap.add_argument("--rwcap-coupling", type=float, default=1e-2, help="RWCap -c (relative error of major couplings)")
     a = ap.parse_args()
 
     case = a.case.resolve()
@@ -504,7 +657,11 @@ def main():
         md.append("FasterCap skipped: inhomogeneous dielectrics are compared with Palace only.\n")
     summary = {"case": name, "results": {}}
     def attempt(key, title, setting, solve, use_ext):
-        fr = run_faradice(case, setting, out / setting / "faradice", a.preset, a.margin, a.threads, reuse=a.reuse)
+        fr = run_faradice(
+            case, setting, out / setting / "faradice", a.preset, a.margin, a.threads, reuse=a.reuse,
+            confidence=a.confidence_sigma,
+            total_only=a.total_only,
+        )
         try:
             ref = solve()
         except SolverFailed as e:
@@ -541,6 +698,24 @@ def main():
                 regions,
             ),
             True,
+        )
+    if "rwcap" in solvers:
+        attempt(
+            "rwcap",
+            "Grounded box: faradice vs RWCap v4",
+            "box",
+            lambda: run_rwcap(
+                eps_r,
+                nets,
+                out / "box" / "rwcap",
+                a.margin,
+                a.threads,
+                a.rwcap_self,
+                0.0 if a.total_only else a.rwcap_coupling,
+                layers,
+                regions,
+            ),
+            False,
         )
     out.mkdir(parents=True, exist_ok=True)
     (out / "summary.json").write_text(json.dumps(summary, indent=1))
