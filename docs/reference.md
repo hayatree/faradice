@@ -106,10 +106,10 @@ faradice solve examples/bus.gds --tech tech/sky130_stack.tech.toml --nets 'bus[1
 ```
 
 With GDSII input, every traced component is a net. Components without a label are named
-`$0`, `$1`, … and match the default target glob `*`, so they are solved too; use `--nets`
-or `extract.nets` to restrict the targets. GDSII input to `solve`, `sens` and `map` uses
-the default tracing options (labels of every hierarchy depth, no joining of same-name
-components); use `faradice gds export` for the other tracing options.
+`$0`, `$1`, …; they stay in the geometry as conductors (at 0 V, like every non-target
+net) but are targets only when a target glob starting with `$` selects them
+(`--nets '$*'`, or `--nets '$3'`), so the default `*` solves the labelled nets only. `--join-same-name` and `--label-depth` set the
+tracing options, as for `faradice gds`.
 
 ### `faradice sens`
 
@@ -466,7 +466,7 @@ physical.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `nets` | array of globs | `["*"]` | Target nets. Ground nets are never targets. At least one target must match. |
+| `nets` | array of globs | `["*"]` | Target nets. Ground nets are never targets. Unlabelled GDSII components (`$0`, …) match only globs that start with `$`. At least one target must match. |
 | `exclude_nets` | array of globs | `[]` | Nets excluded from the targets. |
 
 The cost of a run is proportional to the number of targets; non-targets stay in the

@@ -12,6 +12,11 @@ minor versions may change file formats and interfaces.
 - `solve`, `sens`, `map` and `check` take the GDSII tracing options of `gds`
   (`--join-same-name`, `--label-depth`), so their nets match what `gds export` writes (#13).
 
+### Changed
+
+- Unlabelled GDSII components (`$0`, `$1`, …) are no longer targets by default: target
+  globs match them only when they start with `$`. They remain conductors (#8).
+
 ### Fixed
 
 - `faradice check` applies the structure's `substrate_z`, as `solve` does (#9).

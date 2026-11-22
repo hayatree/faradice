@@ -491,6 +491,19 @@ pub fn read_config(path: &Path) -> Result<Config> {
     Config::parse(&read_to_string(path)?, &path.display().to_string())
 }
 
+/// Like [`any_match`], except that unlabelled GDSII components (`$0`, `$1`,
+/// …) are matched only by globs that start with `$`, so the default `*`
+/// selects labelled nets only (as hidden files in a shell).
+fn target_match(globs: &[String], name: &str) -> bool {
+    if name.starts_with('$') {
+        globs
+            .iter()
+            .any(|g| g.starts_with('$') && glob_match(g, name))
+    } else {
+        any_match(globs, name)
+    }
+}
+
 fn any_match(globs: &[String], name: &str) -> bool {
     globs.iter().any(|g| glob_match(g, name))
 }
@@ -609,7 +622,7 @@ impl Config {
             .nets()
             .filter(|&n| {
                 let name = geom.net_name(n);
-                any_match(&self.extract.nets, name)
+                target_match(&self.extract.nets, name)
                     && !any_match(&self.extract.exclude_nets, name)
                     && !ground_nets.contains(&n)
             })
@@ -776,6 +789,15 @@ mod tests {
         c.ground.substrate = SubstrateKind::None;
         let d = bounds(&c);
         assert_eq!((d.min()[0], d.min()[2], d.max()[2]), (-4.0, 96.0, 105.0));
+    }
+
+    #[test]
+    fn unlabelled_components_are_targets_only_when_asked_for() {
+        assert!(!target_match(&["*".into()], "$3"));
+        assert!(target_match(&["*".into()], "clk"));
+        assert!(target_match(&["$*".into()], "$3"));
+        assert!(target_match(&["$3".into()], "$3"));
+        assert!(!target_match(&["$1".into()], "$3"));
     }
 
     #[test]
