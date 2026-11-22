@@ -2,7 +2,7 @@
 
 Status: Partially implemented (a performance study, results in §7). Implemented: the
 bit-identical cheaper table builds and the plane rejection in the nearest-face queries. Steps 1
-and 5 of §2 were measured and not adopted; steps 2, 3, 4 and 6 are not implemented. The goal of
+and 5 of §2 and a carried clearance bound (§7) were measured and not adopted; steps 2, 3, 4 and 6 are not implemented. The goal of
 §1 is not yet met. Follows [M2d](M2d_edge_cubes.md) and [M2f](M2f_window_first_hops.md).
 
 ## 1. Goal and accounting
@@ -214,3 +214,34 @@ repository.
 `a` component of its L∞ distance. Testing that first (one loop per axis, so `c` is a fixed
 field) skips most faces: C5 CPU −2 %, other cases unchanged. Sorting each list by plane, so that
 only the faces within the radius are visited, costs more in sorting than it saves.
+
+**Carried clearance bound, not adopted.** The conductor clearance is 1-Lipschitz in the max
+norm, so after a move of L∞ length `m` from a point with clearance `h`, `h − m` (with a rounding
+margin) is a valid conductor-free half-side at the new point. The stratified walk already uses
+this bound where the second interface limits the cube (M2a §8); the shell walk queries every
+step. Decision measurement: at least 5 % of the walking CPU on C5.
+
+Instrumented C5 run (default accuracy, 16 threads, 188 M clearance queries), the carried bound
+`b` against the exact clearance `h`:
+
+| `b / h` | < 0.1 | 0.1–0.5 | 0.5–0.9 | ≥ 0.9 |
+|---|---|---|---|---|
+| queries | 54 % | 32 % | 8.5 % | 5.5 % |
+
+Most steps move nearly their full clearance, so the bound is gone by the next step. Only 16 % of
+the steps move no farther than the bound they started with. Even if each of those queries were
+skipped for free with the step unchanged, the saving would be about 16 % × 16.5 % ≈ 2.6 % of
+the CPU.
+
+A skip rule that uses the bound in place of the query when `b ≥ (1 − q)·h_prev` (and
+`b ≥ ε_stop`) keeps the walks exact but shrinks the steps it serves. User-space instructions per
+walk on C5 against the query on every step (cycle counts varied by ±15 % on the shared machine;
+instruction counts by 0.003 %):
+
+| `q` | 0.02 | 0.05 | 0.1 | 0.2 | 0.3 | 0.5 | 1.0 |
+|---|---|---|---|---|---|---|---|
+| steps per walk (48.06 without) | 48.14 | 48.38 | 48.50 | 49.31 | 50.45 | 52.39 | 77.45 |
+| instructions per walk | −0.4 % | −1.2 % | −0.9 % | −2.4 % | −1.6 % | +0.9 % | +17 % |
+
+The best setting saves about 2.5 % of the instructions (−1.1 % on 8 pinned threads), half the
+threshold. The variant is not included in the repository.
