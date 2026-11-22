@@ -19,6 +19,11 @@
 //! extrapolation where the observed order is about 2, and an L1 error estimate
 //! that must stay below [`MAX_ERROR`]. Configurations that fail the gate are
 //! rejected, and the walk keeps its M2c steps there.
+//!
+//! Weak contrasts on the default grid skip the finest level (design M2g §7):
+//! the Richardson extrapolation of the two coarser levels, plus the change
+//! that the finest level makes to the homogeneous cube's (built once per
+//! process), where an error estimate validated over that class allows it.
 
 use std::f64::consts::PI;
 
@@ -121,15 +126,23 @@ impl EdgeCube {
         };
         let p1 = grid.level(n1, resolution)?;
         let p2 = grid.level(2 * n1, resolution)?;
-        let p4 = grid.level(4 * n1, resolution)?;
-        let (mut cells, error) = gate(&p1, &p2, &p4)?;
-        if error > MAX_ERROR {
-            return Err(EdgeReject::Error(error));
-        }
-        let worst = cells.iter().copied().fold(0.0, f64::min);
-        if worst < -1e-12 {
-            return Err(EdgeReject::Negative(worst));
-        }
+        // Two levels suffice where the homogeneous cube's finest level
+        // corrects them within the contract (design M2g §7).
+        let (mut cells, error) = match corrected(&grid, n1, resolution, &p1, &p2) {
+            Some(c) => c,
+            None => {
+                let p4 = grid.level(4 * n1, resolution)?;
+                let (cells, error) = gate(&p1, &p2, &p4)?;
+                if error > MAX_ERROR {
+                    return Err(EdgeReject::Error(error));
+                }
+                let worst = cells.iter().copied().fold(0.0, f64::min);
+                if worst < -1e-12 {
+                    return Err(EdgeReject::Negative(worst));
+                }
+                (cells, error)
+            }
+        };
         for c in &mut cells {
             *c = c.max(0.0);
         }
@@ -193,6 +206,109 @@ const fn lcm(a: usize, b: usize) -> usize {
 
 fn l1(a: &[f64], b: &[f64]) -> f64 {
     a.iter().zip(b).map(|(x, y)| (x - y).abs()).sum()
+}
+
+/// Error estimate of a corrected two-level table per unit of [`excess`]
+/// (design M2g §7): about 1.2 times the largest ratio of its error against
+/// the three-level table found over contrasts up to [`COARSE_MAX_CONTRAST`]
+/// and the three tabulated offsets of the default grid (0.0252, see
+/// `two_level_validation_study`).
+const COARSE_FACTOR: f64 = 0.03;
+/// Largest permittivity contrast of a configuration for the two-level
+/// table: the validated range (SKY130-like stacks are within it).
+const COARSE_MAX_CONTRAST: f64 = 1.3;
+/// The validated grid: `K` offsets, `M` cells per face edge, and the levels
+/// `N₁ = 32`, `2N₁` (the default `walk` settings).
+const COARSE_GRID: (usize, usize, usize) = (16, 32, 32);
+
+/// The levels of the homogeneous cube at `n₁` and `2n₁`, and the change
+/// `R₂ − R₁` of its Richardson extrapolation from the finest level.
+struct Homogeneous {
+    p1: Vec<f64>,
+    p2: Vec<f64>,
+    correction: Vec<f64>,
+}
+
+/// The homogeneous reference for `(n₁, M)`, built once per process (the
+/// homogeneous levels do not depend on the offset); `None` if it fails.
+fn homogeneous(n1: usize, m: usize) -> Option<std::sync::Arc<Homogeneous>> {
+    type Slot = std::sync::Arc<std::sync::OnceLock<Option<std::sync::Arc<Homogeneous>>>>;
+    static REFS: std::sync::Mutex<Vec<((usize, usize), Slot)>> = std::sync::Mutex::new(Vec::new());
+    let slot: Slot = {
+        let mut refs = REFS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some((_, s)) = refs.iter().find(|(k, _)| *k == (n1, m)) {
+            s.clone()
+        } else {
+            let s = Slot::default();
+            refs.push(((n1, m), s.clone()));
+            s
+        }
+    };
+    slot.get_or_init(|| {
+        let g = Grid {
+            eps: [[1.0; 2]; 2],
+            offset: 1,
+            offsets: 2,
+        };
+        let p1 = g.level(n1, m).ok()?;
+        let p2 = g.level(2 * n1, m).ok()?;
+        let p4 = g.level(4 * n1, m).ok()?;
+        let correction = richardson(&p2, &p4)
+            .iter()
+            .zip(richardson(&p1, &p2))
+            .map(|(a, b)| a - b)
+            .collect();
+        Some(std::sync::Arc::new(Homogeneous { p1, p2, correction }))
+    })
+    .clone()
+}
+
+fn richardson(a: &[f64], b: &[f64]) -> Vec<f64> {
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| (4.0f64).mul_add(*y, -x) / 3.0)
+        .collect()
+}
+
+/// The part of the level change `P₂ − P₁` that the homogeneous cube does not
+/// have (L1).
+fn excess(p1: &[f64], p2: &[f64], h: &Homogeneous) -> f64 {
+    p1.iter()
+        .zip(p2)
+        .zip(h.p1.iter().zip(&h.p2))
+        .map(|((a, b), (ha, hb))| ((b - a) - (hb - ha)).abs())
+        .sum()
+}
+
+/// The two-level table of design M2g §7: `R₁` plus the homogeneous cube's
+/// change from its finest level, where the estimate allows it.
+fn corrected(grid: &Grid, n1: usize, m: usize, p1: &[f64], p2: &[f64]) -> Option<(Vec<f64>, f64)> {
+    if (grid.offsets, m, n1) != COARSE_GRID || ![2, 4, 8].contains(&grid.offset) {
+        return None;
+    }
+    let top = grid.eps.iter().flatten().copied().fold(0.0, f64::max);
+    let low = grid
+        .eps
+        .iter()
+        .flatten()
+        .copied()
+        .fold(f64::INFINITY, f64::min);
+    if top > COARSE_MAX_CONTRAST * low {
+        return None;
+    }
+    let h = homogeneous(n1, m)?;
+    let error = COARSE_FACTOR * excess(p1, p2, &h);
+    if error > MAX_ERROR {
+        return None;
+    }
+    let cells: Vec<f64> = richardson(p1, p2)
+        .iter()
+        .zip(&h.correction)
+        .map(|(a, b)| a + b)
+        .collect();
+    (cells.iter().copied().fold(0.0, f64::min) >= -1e-12).then_some((cells, error))
 }
 
 /// The accuracy gate of design §3.4: the table and its error estimate.
@@ -812,6 +928,148 @@ mod tests {
             assert!((got - want).abs() < 5.0 * sd, "cell {k}: {got} vs {want}");
         }
         assert!(checked > 1000, "{checked}");
+    }
+
+    /// The two-level table against the three-level one.
+    fn two_level(eps: [[f64; 2]; 2], k: usize) -> Option<(f64, f64)> {
+        let g = Grid {
+            eps,
+            offset: k,
+            offsets: K,
+        };
+        let (p1, p2) = (g.level(32, M).unwrap(), g.level(64, M).unwrap());
+        let (cells, estimate) = corrected(&g, 32, M, &p1, &p2)?;
+        let p4 = g.level(128, M).unwrap();
+        Some((l1(&cells, &richardson(&p2, &p4)), estimate))
+    }
+
+    #[test]
+    fn two_level_tables_stay_within_their_estimate() {
+        // A SKY130 tuple of C5 (scaled), at every tabulated offset.
+        for k in [2, 4, 8] {
+            let (error, estimate) = two_level([[1.0, 1.0], [0.778, 0.933]], k).unwrap();
+            assert!(
+                error <= estimate && estimate <= MAX_ERROR,
+                "k {k}: {error} vs {estimate}"
+            );
+            let c = EdgeCube::new([[1.0, 1.0], [0.778, 0.933]], k, K, M).unwrap();
+            assert!(c.error_estimate() <= MAX_ERROR);
+        }
+        // The worst pattern of the study (a checkerboard at the largest
+        // contrast) where it is accepted at all.
+        let lo = 1.0 / COARSE_MAX_CONTRAST;
+        for k in [2, 4, 8] {
+            if let Some((error, estimate)) = two_level([[lo, 1.0], [1.0, lo]], k) {
+                assert!(error <= estimate, "k {k}: {error} vs {estimate}");
+            }
+        }
+        // Homogeneous: exactly the three-level table.
+        let (error, _) = two_level([[1.0; 2]; 2], 4).unwrap();
+        assert!(error < 1e-15, "{error}");
+    }
+
+    #[test]
+    fn two_levels_only_in_the_validated_class() {
+        let g = |eps, offset, offsets| Grid {
+            eps,
+            offset,
+            offsets,
+        };
+        let strong = g([[1.0, 1.0], [0.6, 1.0]], 4, K);
+        let (p1, p2) = (strong.level(32, M).unwrap(), strong.level(64, M).unwrap());
+        assert!(corrected(&strong, 32, M, &p1, &p2).is_none());
+        let other = g([[1.0, 1.0], [0.9, 1.0]], 2, 8);
+        let (p1, p2) = (other.level(32, 16).unwrap(), other.level(64, 16).unwrap());
+        assert!(corrected(&other, 32, 16, &p1, &p2).is_none());
+    }
+
+    /// The validation of [`COARSE_FACTOR`] (design M2g §7): every vertex
+    /// pattern and 40 random tuples per contrast up to
+    /// [`COARSE_MAX_CONTRAST`], at the three tabulated offsets. Prints the
+    /// largest ratio of the two-level error to [`excess`]; fails if any
+    /// accepted table exceeds its estimate. About 10 s in release.
+    #[test]
+    #[ignore = "study; run with --ignored --nocapture"]
+    fn two_level_validation_study() {
+        let mut seed = 0x9E37_79B9_7F4A_7C15_u64;
+        let mut next = || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            #[allow(clippy::cast_precision_loss)]
+            let v = (seed >> 11) as f64 / (1u64 << 53) as f64;
+            v
+        };
+        let mut jobs = Vec::new();
+        for c in [1.02, 1.1, 1.2, COARSE_MAX_CONTRAST] {
+            let lo = 1.0 / c;
+            for t in 1..56_usize {
+                if t == 15 {
+                    continue; // homogeneous
+                }
+                let mut e = [[0.0; 2]; 2];
+                for (i, v) in e.iter_mut().flatten().enumerate() {
+                    *v = if t < 16 {
+                        if t >> i & 1 == 1 { 1.0 } else { lo }
+                    } else {
+                        lo + next() * (1.0 - lo)
+                    };
+                }
+                if t >= 16 {
+                    // Random tuples span the full contrast.
+                    e[t % 2][(t / 2) % 2] = 1.0;
+                    e[(t + 1) % 2][(t / 2 + 1) % 2] = lo;
+                }
+                for k in [2, 4, 8] {
+                    jobs.push((c, e, k));
+                }
+            }
+        }
+        let h = homogeneous(32, M).unwrap();
+        let next_job = std::sync::atomic::AtomicUsize::new(0);
+        let worst = std::sync::Mutex::new([0.0_f64; 3]);
+        std::thread::scope(|s| {
+            for _ in 0..8 {
+                s.spawn(|| {
+                    loop {
+                        let i = next_job.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some(&(c, eps, k)) = jobs.get(i) else {
+                            break;
+                        };
+                        let g = Grid {
+                            eps,
+                            offset: k,
+                            offsets: K,
+                        };
+                        let (p1, p2, p4) = (
+                            g.level(32, M).unwrap(),
+                            g.level(64, M).unwrap(),
+                            g.level(128, M).unwrap(),
+                        );
+                        let r2 = richardson(&p2, &p4);
+                        let fixed: Vec<f64> = richardson(&p1, &p2)
+                            .iter()
+                            .zip(&h.correction)
+                            .map(|(a, b)| a + b)
+                            .collect();
+                        let ratio = l1(&fixed, &r2) / excess(&p1, &p2, &h);
+                        let ki = k.trailing_zeros() as usize - 1;
+                        let mut w = worst.lock().unwrap();
+                        w[ki] = w[ki].max(ratio);
+                        if let Some((cells, estimate)) = corrected(&g, 32, M, &p1, &p2) {
+                            let error = l1(&cells, &r2);
+                            assert!(
+                                error <= estimate,
+                                "c {c} k {k} {eps:?}: {error} > {estimate}"
+                            );
+                        }
+                    }
+                });
+            }
+        });
+        let w = worst.into_inner().unwrap();
+        println!("largest error / excess at k = 2, 4, 8: {w:?} (factor {COARSE_FACTOR})");
+        assert!(w.iter().all(|&r| r < COARSE_FACTOR));
     }
 
     #[test]

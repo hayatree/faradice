@@ -1,9 +1,9 @@
 # M2g: Cost of walks near conformal shells
 
 Status: Partially implemented (a performance study, results in §7). Implemented: the
-bit-identical cheaper table builds and the plane rejection in the nearest-face queries. Steps 1
-and 5 of §2 and a carried clearance bound (§7) were measured and not adopted; steps 2, 3, 4 and 6 are not implemented. The goal of
-§1 is not yet met. Follows [M2d](M2d_edge_cubes.md) and [M2f](M2f_window_first_hops.md).
+bit-identical cheaper table builds, the plane rejection in the nearest-face queries, and step 4
+of §2 (two-level edge tables). Steps 1 and 5 and a carried clearance bound (§7) were measured
+and not adopted; steps 2, 3 and 6 are not implemented. The goal of §1 is not yet met. Follows [M2d](M2d_edge_cubes.md) and [M2f](M2f_window_first_hops.md).
 
 ## 1. Goal and accounting
 
@@ -263,3 +263,32 @@ instruction counts by 0.003 %):
 
 The best setting saves about 2.5 % of the instructions (−1.1 % on 8 pinned threads), half the
 threshold. The variant is not included in the repository.
+
+**Step 4 (§2), implemented: two-level edge tables.** In the SKY130 configurations of C5 the
+three levels converge at order 1.99 and `‖P₂ − P₁‖ ≈ 1.75·10⁻³` hardly depends on the
+permittivities: most of the discretization error is that of the homogeneous cube, which is the
+same for every tuple and offset. So the homogeneous cube is built once per process at all three
+levels, and a tuple's table is
+
+`R₁ + (R₂ʰ − R₁ʰ)`
+
+(its two-level Richardson extrapolation plus the change the finest level makes to the
+homogeneous one). Its error estimate is `0.03 · ‖(P₂ − P₁) − (P₂ʰ − P₁ʰ)‖` (L1), the part of the
+level change that the homogeneous cube does not have. The factor is about 1.2 times the largest
+ratio of the actual error (against the three-level `R₂`) to that excess over the validated
+class: the default grid (`K = 16`, `M = 32`, levels 32 and 64), the offsets 2, 4, 8, and
+contrasts up to 1.3. The validation covers all 14 non-homogeneous vertex patterns and 40 random
+tuples per contrast (1.02, 1.1, 1.2, 1.3; 648 configurations; `two_level_validation_study` in
+`edge.rs`). Largest ratios 0.0252, 0.0209 and 0.0176 for the offsets 2, 4, 8; order 1.98–2.00;
+no negative cells. Outside the class, or with an estimate above 10⁻⁵, the table is built at
+three levels as before. Without the correction, plain `R₁` would carry errors of 5.5–8·10⁻⁶
+in C5; with it the error is 0.5–6.2·10⁻⁶. The ratio grows with the contrast (up to 0.042 at
+contrast 3, the checkerboard being the worst pattern), which is why the class stops at 1.3.
+
+All 36 tables of C5 and all 18 of C4 use two levels (estimates below 10⁻⁵). User-space
+instructions: C5 −11 %, C4 −24 %; fixed part (one wave of 64-walk batches): C5 15.5 → 7.5
+CPU-s and 0.66 → 0.38 s wall, C4 9.0 → 4.8 CPU-s. C4 wall at the default accuracy 1.51 →
+1.43 s. C5 wall times on the shared machine scattered too widely to state (5.9–10.0 s before,
+7.6–9.2 s after; medians 9.6 and 8.7 s). Results are not bit-identical; with four independent
+seeds per variant the 81 matrix entries of C5 differ by an rms of 1.04σ (mean +0.08σ, largest
+2.6σ), C4's four by at most 0.9σ.

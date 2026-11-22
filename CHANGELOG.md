@@ -14,6 +14,10 @@ minor versions may change file formats and interfaces.
 
 ### Changed
 
+- Edge-cube tables of weak contrasts (up to 1.3, the SKY130-like stacks) skip their finest grid
+  level, corrected by the homogeneous cube's: conformal-shell runs use about half the table
+  build time (C5 −11 % instructions, C4 −24 %). The tables stay within the 10⁻⁵ error
+  contract, but results are not bit-identical to 0.1.0 for such runs (#5).
 - Unlabelled GDSII components (`$0`, `$1`, …) are no longer targets by default: target
   globs match them only when they start with `$`. They remain conductors (#8).
 - Lengths follow one rule: everything that describes the input geometry is in the input's
