@@ -154,6 +154,20 @@ impl Project {
             .collect()
     }
 
+    /// The length unit of the input: the structure file's `units`, or µm for
+    /// GDSII input (technology files are in µm). Sensitivity files and map
+    /// grids given with this input are in this unit.
+    ///
+    /// # Errors
+    ///
+    /// An unknown unit name in the structure file.
+    pub fn length_unit(&self) -> Result<faradice_core::LengthUnit> {
+        match &self.source {
+            Source::Structure(f) => Ok(f.length_unit()?),
+            Source::Gds { .. } => Ok(faradice_core::LengthUnit::Um),
+        }
+    }
+
     /// Builds the solver geometry for `cfg` (removed nets dropped) and applies
     /// the input's substrate height to `cfg.ground.substrate_z`.
     ///

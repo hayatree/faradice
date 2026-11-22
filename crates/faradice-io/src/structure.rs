@@ -53,8 +53,8 @@ pub struct StructureFile {
     pub units: String,
     /// Dielectric (homogeneous or a stratified stack).
     pub dielectric: Dielectric,
-    /// Substrate plane height (µm) implied by the source (e.g. a GDS technology
-    /// file). Overrides `ground.substrate_z` of the run configuration.
+    /// Substrate plane height (in `units`) implied by the source (e.g. a GDS
+    /// technology file). Overrides `ground.substrate_z` of the run configuration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub substrate_z: Option<f64>,
     /// Conductors.
@@ -168,11 +168,7 @@ impl StructureFile {
                 self.schema_version
             )));
         }
-        let unit: LengthUnit = self
-            .units
-            .parse()
-            .map_err(|e: faradice_core::Error| IoError::Invalid(e.to_string()))?;
-        let k = unit.to_um_factor();
+        let k = self.length_unit()?.to_um_factor();
         let mut b = GeometryBuilder::new();
         let mut tagged: Vec<(&str, BoxId)> = Vec::new();
         for c in self.conductors.iter().filter(|c| keep(&c.net)) {
@@ -232,9 +228,20 @@ impl StructureFile {
             geometry,
             eps_r: self.dielectric.eps_r,
             layers,
-            substrate_z: self.substrate_z,
+            substrate_z: self.substrate_z.map(|z| z * k),
             regions,
         })
+    }
+
+    /// The length unit of the file (`units`).
+    ///
+    /// # Errors
+    ///
+    /// An unknown unit name.
+    pub fn length_unit(&self) -> Result<LengthUnit> {
+        self.units
+            .parse()
+            .map_err(|e: faradice_core::Error| IoError::Invalid(e.to_string()))
     }
 
     /// All net names in file order (deduplicated).
@@ -299,6 +306,16 @@ boxes = [[0.0, 0.0, 1000.0, 100.0, 100.0, 1200.0]]
                 }
             ]
         );
+    }
+
+    #[test]
+    fn substrate_height_is_in_file_units() {
+        let text = STACK.replace("units = \"nm\"", "units = \"nm\"\nsubstrate_z = 250.0");
+        let st = StructureFile::parse(&text, "t")
+            .unwrap()
+            .build(|_| true)
+            .unwrap();
+        assert_eq!(st.substrate_z, Some(0.25));
     }
 
     #[test]

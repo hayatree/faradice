@@ -388,3 +388,108 @@ fn bad_additions_are_reported() {
         err(&add("shield", "", "[3.0, 0.3, 1.2, 7.0, 0.4, 1.6]")).contains("touches a conductor")
     );
 }
+
+/// `WIRES` in `nm` (coordinates × 1000).
+fn wires_nm() -> String {
+    let mut out = String::new();
+    for line in WIRES.lines() {
+        if let Some(list) = line.strip_prefix("boxes = [[") {
+            let v: Vec<String> = list
+                .trim_end_matches("]]")
+                .split(',')
+                .map(|t| format!("{:.1}", t.trim().parse::<f64>().unwrap() * 1000.0))
+                .collect();
+            out += &format!("boxes = [[{}]]\n", v.join(", "));
+        } else {
+            out += &line.replace("units = \"um\"", "units = \"nm\"");
+            out.push('\n');
+        }
+    }
+    out
+}
+
+/// Sensitivity files and map grids are in the input's unit: the same run in
+/// nm and in µm agrees.
+#[test]
+fn sensitivity_and_map_lengths_follow_the_input_units() {
+    let um = r#"
+schema_version = 1
+
+[[param]]
+name = "w"
+sigma = 0.01
+faces = [{ net = "victim", at = [5.0, 0.42, 1.2], face = "y+", delta = 0.02 }]
+
+[[add]]
+name = "shield"
+net = "shield"
+boxes = [[3.0, 0.2, 1.5, 7.0, 0.5, 1.6]]
+"#;
+    let nm = r#"
+schema_version = 1
+
+[[param]]
+name = "w"
+sigma = 10.0
+faces = [{ net = "victim", at = [5000.0, 420.0, 1200.0], face = "y+", delta = 20.0 }]
+
+[[add]]
+name = "shield"
+net = "shield"
+boxes = [[3000.0, 200.0, 1500.0, 7000.0, 500.0, 1600.0]]
+"#;
+    let cfg_text = wires_cfg(5).replace("300000", "40000");
+    let d = dir("units-um");
+    let (pu, cu) = (project(&d, WIRES), config(&d, &cfg_text));
+    let d = dir("units-nm");
+    let (pn, cn) = (project(&d, &wires_nm()), config(&d, &cfg_text));
+    let a = run(&pu, &cu, um, None);
+    let b = run(&pn, &cn, nm, None);
+    let (pa, pb) = (&a.sens.params[0], &b.sens.params[0]);
+    assert!((pb.sigma_um.unwrap() - 0.01).abs() < 1e-12);
+    for (x, y) in [
+        (
+            entry(&pa.dc, "victim", "victim"),
+            entry(&pb.dc, "victim", "victim"),
+        ),
+        (
+            entry(&pa.sigma_c, "victim", "victim"),
+            entry(&pb.sigma_c, "victim", "victim"),
+        ),
+        (
+            entry(&a.sens.additions[0].dc, "victim", "victim"),
+            entry(&b.sens.additions[0].dc, "victim", "victim"),
+        ),
+    ] {
+        let zz = z((x.value, x.std_err), (y.value, y.std_err));
+        assert!(zz.abs() <= 4.0, "µm {x:?}, nm {y:?}");
+    }
+
+    let map = |p: &Project, cfg: &Config, k: f64| {
+        let req = faradice_sens::map::MapRequest {
+            run: RunRequest {
+                config: cfg.clone(),
+                engine: WalkEngineKind::Cpu,
+            },
+            nets: ("victim".into(), "left".into()),
+            grid: faradice_sens::map::Grid::parse(&format!("{},{},{}", 5.0 * k, 0.21 * k, 1.5 * k))
+                .unwrap(),
+            samples: 4000,
+            radius: 0.05 * k,
+        };
+        faradice_sens::map::insertion_map(p, &req).unwrap().0
+    };
+    let (ra, rb) = (map(&pu, &cu, 1.0), map(&pn, &cn, 1000.0));
+    // Rows are in µm whatever the input unit.
+    for (x, y) in ra[0].p.point.iter().zip(rb[0].p.point) {
+        assert!(
+            (x - y).abs() < 1e-9,
+            "{:?} vs {:?}",
+            ra[0].p.point,
+            rb[0].p.point
+        );
+    }
+    let (ga, gb) = (ra[0].grounded, rb[0].grounded);
+    assert!(ga.is_finite() && gb.is_finite());
+    assert!((ga - gb).abs() <= 0.2 * ga.abs(), "µm {ga}, nm {gb}");
+}

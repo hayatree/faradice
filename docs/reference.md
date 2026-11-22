@@ -175,9 +175,9 @@ apply.
 | Option | Meaning |
 |---|---|
 | `--nets <A,B>` | The two nets (required). A single name (or `A,A`) maps the total of one net. |
-| `--grid <SPEC>` | `x0:x1:nx,y0:y1:ny,z0:z1:nz` in µm (required); `n` points from `x0` to `x1` inclusive. An axis may be a single value. |
+| `--grid <SPEC>` | `x0:x1:nx,y0:y1:ny,z0:z1:nz` in the input's units (required); `n` points from `x0` to `x1` inclusive. An axis may be a single value. |
 | `--samples <N>` | Walks per point (default 4000). |
-| `--radius <R>` | Radius of the sphere-equivalent object in µm (default 0.05). |
+| `--radius <R>` | Radius of the sphere-equivalent object, in the input's units (default 0.05 µm). |
 | `-o, --out <FILE>` | Output CSV (default `map.csv`). |
 
 ```sh
@@ -305,7 +305,7 @@ boxes = [[0.0, 0.28, 1.0, 10.0, 0.42, 1.36]]
 |---|---|---|---|
 | `schema_version` | integer | required | Must be `1`. |
 | `units` | string | `"um"` | Length unit of every coordinate and thickness in this file: `nm`, `um` (also `µm`, `micron`), `mm`, `m`. |
-| `substrate_z` | float | unset | Substrate plane height in µm (not in `units`). If set, it overrides `ground.substrate_z` of the run configuration. Written by `gds export`. |
+| `substrate_z` | float | unset | Substrate plane height, in `units`. If set, it overrides `ground.substrate_z` of the run configuration. Written by `gds export`. |
 | `[dielectric]` | table | required | See below. |
 | `[[conductor]]` | array of tables | empty | Conductors. |
 
@@ -643,8 +643,8 @@ GDS shapes on pairs that are not mapped are ignored.
 
 Input of `faradice sens`. It contains parameters (`[[param]]`), conductor deletions
 (`[[delete]]`) and additions (`[[add]]`); at least one entry is required. Unknown keys are
-rejected. All lengths in this file are in **µm**, whatever the `units` of the structure
-file. Example: `examples/three_wires.sens.toml`.
+rejected. All lengths in this file are in the input's units: the `units` of the structure
+file, or µm for GDSII input. Example: `examples/three_wires.sens.toml`.
 
 ```toml
 schema_version = 1
@@ -698,7 +698,7 @@ The result is `dC_ij/dp` in fF/µm.
 | `name` | string | required | Unique name. |
 | `faces` | array of face handles | `[]` | Explicit faces (below). |
 | `translate` | `{ net, axis }` | unset | Rigid translation of `net` along `axis` (`x`, `y`, `z`): every exposed `-` face with weight −1 and every exposed `+` face with weight +1. |
-| `sigma` | float ≥ 0 (µm) | unset | 1σ process variation of the parameter; adds `σ_C = |dC/dp|·sigma` (fF) to `sens.json`. |
+| `sigma` | float ≥ 0 (input units) | unset | 1σ process variation of the parameter; adds `σ_C = |dC/dp|·sigma` (fF) to `sens.json`. |
 
 A parameter needs `faces`, `translate` or both. Face handle keys:
 
@@ -706,10 +706,10 @@ A parameter needs `faces`, `translate` or both. Face handle keys:
 |---|---|---|---|
 | `net` | string | required | Net name. |
 | `box` | integer | — | Index of the box within the net (file order, from 0). Give `box` or `at`, not both. |
-| `at` | `[x, y, z]` (µm) | — | A point on the face; selects the net's box whose face contains it (useful for GDS input). |
+| `at` | `[x, y, z]` (input units) | — | A point on the face; selects the net's box whose face contains it (useful for GDS input). |
 | `face` | string | required | `x-`, `x+`, `y-`, `y+`, `z-`, `z+` (or `xmin`, `xmax`, …). |
 | `weight` | float | `1.0` | Chain-rule weight. |
-| `delta` | float > 0 (µm) | from `delta_rel` | Explicit step for this face. |
+| `delta` | float > 0 (input units) | from `delta_rel` | Explicit step for this face. |
 
 The face must have exposed area (not covered by its own net, not on a reflecting wall). A
 step must be large compared with the walk stopping distance; otherwise `sens` stops with a
@@ -735,7 +735,7 @@ recorded nominal walks.
 | `name` | string | required | Unique name. |
 | `net` | string | required | An existing non-target net (its boxes are extended) or a new name (a new conductor at 0 V, e.g. a shield). |
 | `ground` | bool | `true` | New nets only: count the new conductor in the `<GND>` sums. Not allowed for an existing net. |
-| `boxes` | array of `[x0, y0, z0, x1, y1, z1]` (µm) | required | Added boxes. |
+| `boxes` | array of `[x0, y0, z0, x1, y1, z1]` (input units) | required | Added boxes. |
 
 ## 7. Output files
 
@@ -825,19 +825,24 @@ the predictions. `status` is `ok`,
 
 ## 8. Units
 
+The rule: lengths that describe or point into the input geometry (structure file,
+sensitivity file, `map --grid` and `--radius`) are in the **input's units**, the `units`
+of the structure file or µm for GDSII input. Run configuration and technology file
+lengths are in µm. Every output is in µm.
+
 | Quantity | Unit |
 |---|---|
-| Structure-file coordinates and thicknesses | `units` of that file (default µm) |
-| Structure-file `substrate_z` | µm |
+| Structure-file lengths (coordinates, thicknesses, `substrate_z`) | `units` of that file (default µm) |
 | Run configuration lengths (`substrate_z`, `margin`, `stop_dist`) | µm |
 | Technology file lengths | µm |
-| Sensitivity file (`at`, `delta`, `sigma`, `boxes`) | µm |
-| `map --grid`, `--radius` | µm |
+| Sensitivity file (`at`, `delta`, `sigma`, `boxes`) | the input's units (structure `units`; µm for GDSII) |
+| `map --grid`, `--radius` | the input's units (structure `units`; µm for GDSII) |
 | Capacitances, thresholds (`abs_threshold_ff`, `coupling_track.abs_ff`) | fF |
 | Derivatives `dC/dp` | fF/µm |
 | Permittivities | relative (`eps_r`; ε₀ = 8.8541878128 × 10⁻³ fF/µm) |
 
-Internally everything is converted to µm. Output coordinates are in µm.
+Internally everything is converted to µm. Output coordinates, steps (`delta_um`), gaps
+and sigmas (`sigma_um`) are in µm.
 
 ## 9. Statistical error (σ)
 

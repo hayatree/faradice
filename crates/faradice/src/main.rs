@@ -130,7 +130,8 @@ enum Command {
         /// The two nets `a,b` (equal for the total of one net).
         #[arg(long)]
         nets: String,
-        /// Grid `x0:x1:nx,y0:y1:ny,z0:z1:nz` (µm); an axis may be one value.
+        /// Grid `x0:x1:nx,y0:y1:ny,z0:z1:nz` in the input's units; an axis may
+        /// be one value.
         #[arg(long)]
         grid: String,
         /// Run configuration (`faradice.toml`).
@@ -141,9 +142,10 @@ enum Command {
         /// Samples per point.
         #[arg(long, default_value_t = 4000)]
         samples: u64,
-        /// Radius (µm) of the sphere-equivalent object for the predictions.
-        #[arg(long, default_value_t = 0.05)]
-        radius: f64,
+        /// Radius of the sphere-equivalent object for the predictions, in the
+        /// input's units [default: 0.05 µm].
+        #[arg(long)]
+        radius: Option<f64>,
         /// Worker threads (0 = all cores).
         #[arg(long)]
         threads: Option<usize>,
@@ -630,11 +632,12 @@ fn main() -> Result<()> {
                 Some((a, b)) => (a.to_owned(), b.to_owned()),
                 None => (nets.clone(), nets.clone()),
             };
+            let cfg = run_config(config.as_deref(), None, None, threads, seed)?;
+            let project = layout.load(&structure)?;
+            let radius = radius.unwrap_or(0.05 / project.length_unit()?.to_um_factor());
             if !(radius.is_finite() && radius > 0.0) {
                 bail!("--radius must be positive");
             }
-            let cfg = run_config(config.as_deref(), None, None, threads, seed)?;
-            let project = layout.load(&structure)?;
             let req = faradice_sens::map::MapRequest {
                 run: RunRequest {
                     config: cfg,
