@@ -19,6 +19,8 @@ minor versions may change file formats and interfaces.
   a message that names the requirement (#18).
 - `faradice report` names the SPEF after the design instead of always `design.spef`;
   `result.json` now stores the design name (#12).
+- The automatic domain margin follows the conductors' height above the substrate plane
+  (or their vertical extent without one) instead of their absolute `z_max` (#15).
 
 ## [0.1.0] - 2026-11-22
 
