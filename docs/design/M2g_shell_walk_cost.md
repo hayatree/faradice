@@ -3,7 +3,7 @@
 Status: Partially implemented (a performance study, results in §7). Implemented: the
 bit-identical cheaper table builds, the plane rejection in the nearest-face queries, and step 4
 of §2 (two-level edge tables). Steps 1 and 5 and a carried clearance bound (§7) were measured
-and not adopted; steps 2, 3 and 6 are not implemented. The goal of §1 is not yet met. Follows [M2d](M2d_edge_cubes.md) and [M2f](M2f_window_first_hops.md).
+and not adopted; steps 2, 3 and 6 are not implemented (the ceiling of step 6 is measured in §7). The goal of §1 is not yet met. Follows [M2d](M2d_edge_cubes.md) and [M2f](M2f_window_first_hops.md).
 
 ## 1. Goal and accounting
 
@@ -292,3 +292,36 @@ CPU-s and 0.66 → 0.38 s wall, C4 9.0 → 4.8 CPU-s. C4 wall at the default acc
 7.6–9.2 s after; medians 9.6 and 8.7 s). Results are not bit-identical; with four independent
 seeds per variant the 81 matrix entries of C5 differ by an rms of 1.04σ (mean +0.08σ, largest
 2.6σ), C4's four by at most 0.9σ.
+
+**Step 6 (§5), ceiling measured: two-sided landing.** A temporary probe (not included in the
+repository) classified every step of the default-accuracy C5 and C4 runs, 16 threads. A step
+counts as an edge-branch step when the best axis cube is below `0.7 h`: a landing box, an edge
+cube, or a step that found neither and fell back to the M2c step. The probe also timed each
+step, including its clearance query, with `Instant`. The timing adds about 8 % overhead,
+which matters for the absolute times but not for the shares. An *episode* is a run of
+consecutive edge-branch steps of one walk. It is the span that a two-sided landing would
+replace: corner entry to exit.
+
+| | C5 | C4 |
+|---|---|---|
+| edge-branch steps / time of all steps | 19.1 % / 24.8 % | 24.5 % / 29.8 % |
+| episodes per walk | 1.16 | 1.31 |
+| mean episode length (steps) | 3.79 | 3.76 |
+| episodes of 1 step / 4 or more steps | 37 % / 33 % | 38 % / 33 % |
+| time per step (ns): elsewhere, landing, edge cube, fallback | 503, 658, 914, 621 | 509, 658, 812, 544 |
+
+The best case for a two-sided landing assumes three things:
+
+- every episode of two or more steps shrinks to two steps: the landing onto `P` or `Q`, and
+  the edge cube that leaves the plane;
+- each landing succeeds;
+- each step costs what an edge-branch step costs now.
+
+That best case saves 13.9 % of the walking time in C5 and 16.6 % in C4. If the analytic
+landing costs twice a table landing (the §5 threshold), the saving falls to 10.1 % and 11.9 %.
+§5 also bounds the landing probability at 76–94 %, not 100 %. The failed landings add steps, so
+the realistic gain is about 5–10 % of the walking time. That is about 4–9 % of the C5 wall
+time, because the walking part is about 90 % of it after step 4. These figures are smaller
+than the oracle's 23 % (§1). The oracle also made every edge-branch step as cheap as an open
+step, and it turned the single-step episodes (37 %) into larger cubes; a two-sided landing
+changes neither.
