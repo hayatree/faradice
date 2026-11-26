@@ -147,6 +147,14 @@ step 6, after step 1 shows how much landing coverage the cheaper construction le
   20 boxes scan in 35 ns), list reach 2/3/6 (4 stays best), lists sorted by distance from the
   centre with early exit (3 % slower), one fused query per step (about 5 % by an A/B with
   duplicated queries).
+- **Stratified Gaussian-surface sampling** (M1 §5.5; the walk count, not the step cost). A
+  temporary probe recorded, for every Gaussian candidate of the default-accuracy runs, the
+  self-capacitance contribution and the step count by stratum (each face of each dilated box,
+  split into up to 8 × 8 cells). With Neyman allocation weighted by the cost per sample and
+  exact stratum variances (an upper bound: a real scheme estimates them in pilot batches),
+  the case times would fall by 4.4 % (C5), 12 % (C4), 5.2 % (L6) and 4.8 % (V8). Face strata
+  alone give 2.5 %, 10 %, 2.9 % and 2.8 %. The gain is no larger with shells than without, so
+  it does not move C5 towards the goal of §1.
 
 The measurements of the fixed part corrected two earlier readings: nets are not solved one
 after another, and `run_net` computes a full wave of batches before it checks convergence, so a
