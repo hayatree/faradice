@@ -29,6 +29,7 @@ around it, **G** the GPU engine.
 | [M2e](design/M2e_layered_first_hops.md) | First hops between facing interfaces |
 | [M2f](design/M2f_window_first_hops.md) | First hops for thin 2D cross-sections |
 | [M2g](design/M2g_shell_walk_cost.md) | Cost of walks near conformal shells (ongoing) |
+| [M2h](design/M2h_two_sided_landing.md) | Two-sided landing near dielectric edges (design) |
 | [D1](design/D1_gui.md) | The desktop GUI |
 | [D2](design/D2_agent_api_mcp.md) | An engine API and an MCP server for AI agents (proposal) |
 | [D3](design/D3_sensitivity.md) | Capacitance sensitivities and what-if analysis |

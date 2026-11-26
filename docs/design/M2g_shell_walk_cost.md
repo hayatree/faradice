@@ -129,6 +129,8 @@ with certified tail bounds), take the earliest, then draw the other coordinates 
 This is worth it only if a two-sided landing costs less than about twice a table landing. It is
 step 6, after step 1 shows how much landing coverage the cheaper construction leaves.
 
+The design is [M2h](M2h_two_sided_landing.md).
+
 ## 6. Rejected
 
 - **Recentring on fixed points.** In a homogeneous ball, the Poisson kernel is a mixture of the
