@@ -3,7 +3,7 @@
 Status: Partially implemented (a performance study, results in §7). Implemented: the
 bit-identical cheaper table builds, the plane rejection in the nearest-face queries, and step 4
 of §2 (two-level edge tables). Steps 1 and 5 and a carried clearance bound (§7) were measured
-and not adopted; steps 2, 3 and 6 are not implemented (the ceiling of step 6 is measured in §7). The goal of §1 is not yet met. Follows [M2d](M2d_edge_cubes.md) and [M2f](M2f_window_first_hops.md).
+and not adopted; steps 2 and 3 are not implemented. Step 6 was implemented and measured in [M2h](M2h_two_sided_landing.md), and not adopted. The goal of §1 is not yet met. Follows [M2d](M2d_edge_cubes.md) and [M2f](M2f_window_first_hops.md).
 
 ## 1. Goal and accounting
 
@@ -335,3 +335,7 @@ time, because the walking part is about 90 % of it after step 4. These figures a
 than the oracle's 23 % (§1). The oracle also made every edge-branch step as cheap as an open
 step, and it turned the single-step episodes (37 %) into larger cubes; a two-sided landing
 changes neither.
+
+**Step 6, implemented and not adopted** ([M2h](M2h_two_sided_landing.md) §8). The two-sided
+landing cut C5's steps per walk by 5.1 % but its instructions by only 0.65 %, and C4's
+instructions rose by 1.9 %.

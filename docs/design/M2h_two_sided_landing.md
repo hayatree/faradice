@@ -1,7 +1,7 @@
 # M2h: Two-sided landing near dielectric edges
 
-Status: Design (issue #4). Follows [M2g](M2g_shell_walk_cost.md) §5 and the ceiling measured in
-M2g §7. Not implemented.
+Status: Implemented and measured; not adopted (§8). The code is not included in the repository.
+Issue #4. Follows [M2g](M2g_shell_walk_cost.md) §5 and the ceiling measured in M2g §7.
 
 ## 1. Goal
 
@@ -186,3 +186,49 @@ compared (M2g §7: they scatter by ±15 % on the shared machine).
   ulp, as for the other samplers.
 - **Rare long times.** Lévy proposals have heavy tails. Times beyond a few `ℓ²` are accepted with
   probability below `e^{-π²t/2}`, so they cost one cheap rejection each.
+
+## 8. Results
+
+**Not adopted.** The sampler passed every test of §6 and its cost limit. It cut the steps, but
+not the instructions: the decision measurement of §5 (C5 at least 4 % fewer instructions per
+walk) failed.
+
+**Sampler (§5 steps 1 and 2).**
+- **Tests.** Five unit tests passed:
+  - Kolmogorov–Smirnov tests of the exit times, the sides and the survivor positions;
+  - the face probabilities of three boxes;
+  - harmonic invariance for four functions at three starts;
+  - every tail bound against 400-term sums.
+- **Mutation check.** Deliberate errors in the side probability, either series, or the time
+  passed to the survivors each made at least one test fail.
+- **Cost.** One box exit took 0.59–0.65 µs on the shared machine, against the limit of 1.3 µs;
+  drawing a table landing alone takes 19 ns. Exit-time proposals averaged 2.0 per axis in C4,
+  as §3.2 predicts.
+- **A start within rounding of a face** (its fraction rounds to 0 or 1) made the exit-time
+  sampler loop forever: the distance to that end is 0. In C5 this happened within seconds.
+  Such a start now leaves through that face at once.
+
+**Walk (§5 step 3).** Default accuracy, 16 threads, the same seed; user-space instructions
+from `perf stat`:
+
+| | steps per walk | instructions per walk |
+|---|---|---|
+| C5, one-sided landing | 48.02 | 325 299 |
+| C5, two-sided landing | 45.57 (−5.1 %) | 323 176 (−0.65 %) |
+| C4, one-sided landing | 42.22 | 296 883 |
+| C4, two-sided landing | 39.29 (−6.9 %) | 302 554 (+1.9 %) |
+
+The totals agree: C4's two nets within 0.6σ, C5's nine within 1.2σ.
+
+**Why the gain is small.**
+- **Fewer steps saved than the ceiling assumed.** The steps fell by 5–7 %, not by the
+  episode collapse that the ceiling of M2g §7 assumed. After a landing, the edge cube that
+  leaves the plane often ends near the edge again, so an episode does not shrink to two steps.
+- **Each two-sided landing costs more than a table landing.** C5 takes about 6.5 two-sided
+  landings per walk. The steps they save are worth about 16.6 k instructions per walk, and the
+  net saving is about 2.1 k. Each landing therefore costs about 2.2 k instructions more than a
+  table landing.
+- **Even a free sampler would barely pass.** It would save at most about 5 % of the
+  instructions. Passing the 4 % gate would need a sampler at about a tenth of the current cost,
+  which the series method cannot reach: an exit takes about nine proposals, each with a normal
+  variate and several exponentials.
